@@ -2,7 +2,7 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 
-def plot_accuracy_vs_rounds(dataset_name):
+def plot_accuracy_vs_rounds():
     log_directory = './log'
     epsilon_values = [0.002, 1.0, 5.0, 10.0, 20.0, 30.0, 40.0, 50.0]
     colors = plt.cm.viridis(np.linspace(0, 1, len(epsilon_values)))  # Generate a color map
@@ -17,7 +17,7 @@ def plot_accuracy_vs_rounds(dataset_name):
     
     # Loop over each epsilon value and plot its data
     for epsilon, color in zip(epsilon_values, colors):
-        file_path = f'{log_directory}/{dataset_name}_epsilon_{epsilon}.dat'
+        file_path = f'{log_directory}/accuracy_epsilon_{epsilon}.dat'
         try:
             rounds = []
             accuracies = []
@@ -31,19 +31,17 @@ def plot_accuracy_vs_rounds(dataset_name):
             plt.plot(rounds, accuracies, label=f'ε={epsilon}', marker='o', color=color)
 
         except FileNotFoundError:
-            print(f"No data file found for {dataset_name} with epsilon {epsilon}. Skipping...")
+            print(f"No data file found for epsilon {epsilon}. Skipping...")
             continue
 
-    plt.title(f'Accuracy vs. Rounds for Different Epsilon Values ({dataset_name})')
+    plt.title('Accuracy vs. Rounds for Different Epsilon Values')
     plt.xlabel('Rounds')
     plt.ylabel('Accuracy (%)')
     plt.legend(title='Epsilon Values', loc='best')
     plt.grid(True)
-    plt.savefig(f'./log/{dataset_name}_accuracy_vs_rounds.png')
+    plt.savefig('./log/accuracy_vs_rounds.png')
     plt.show()
 
 if __name__ == "__main__":
-    datasets = ['CIFAR10', 'MNIST']
-    for dataset in datasets:
-        plot_accuracy_vs_rounds(dataset)
+    plot_accuracy_vs_rounds()
 

@@ -160,8 +160,7 @@ def run_fedavg(dataset_name='CIFAR10', num_clients=4, num_rounds=5, local_epochs
             accuracy = test_model(global_model_dp, test_loader)
             dp_accuracies.append(accuracy)
             print(f"Round {round + 1}, Epsilon {epsilon}: Global DP model accuracy: {accuracy:.4f}")
-
-        with open(f'./log/{dataset_name}_epsilon_{epsilon}.dat', 'w') as f:
+        with open(f'./log/{dataset_name}_DP_FedAvg_epsilon_{epsilon}.dat', 'w') as f:
             for round_number, acc in enumerate(dp_accuracies, start=1):
                 f.write(f"{round_number} {acc}\n")
 

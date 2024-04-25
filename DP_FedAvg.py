@@ -18,10 +18,24 @@ class SimpleCNN(nn.Module):
         self.fc2 = nn.Linear(120, 84)
         self.fc3 = nn.Linear(84, 10)
 
+#USE THIS FOR CIFAR10 DATASET
+'''
     def forward(self, x):
         x = self.pool(F.relu(self.conv1(x)))
         x = self.pool(F.relu(self.conv2(x)))
         x = x.view(-1, 16 * 5 * 5)
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = self.fc3(x)
+        return x
+'''
+#USE THIS FOR MNIST DATASET
+
+    def forward(self, x):
+        x = self.pool(F.relu(self.conv1(x)))
+        x = self.pool(F.relu(self.conv2(x)))
+        # Assuming you end up with a 7x7 feature map, you should adjust the following line accordingly:
+        x = x.view(-1, 16 * 7 * 7)  # Change from 16 * 5 * 5 to 16 * 7 * 7 for MNIST
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         x = self.fc3(x)
@@ -108,35 +122,35 @@ def run_fedavg(dataset_name, num_clients, num_rounds, local_epochs, epsilon_valu
         dp_accuracies = []
         global_model_dp = SimpleCNN(num_channels=num_channels).cpu()
 
-    for round in range(num_rounds):
-        client_models = [train_client(loader, global_model_dp, local_epochs, delta, epsilon) for loader in client_loaders]
-        global_model_dp = aggregate_models(global_model_dp, client_models)
-        accuracy = test_model(global_model_dp, test_loader)
-        dp_accuracies.append(accuracy)
-        print(f"Round {round + 1}, Epsilon {epsilon}: Global DP model accuracy: {accuracy:.4f}")
+        for round in range(num_rounds):
+            client_models = [train_client(loader, global_model_dp, local_epochs, delta, epsilon) for loader in client_loaders]
+            global_model_dp = aggregate_models(global_model_dp, client_models)
+            accuracy = test_model(global_model_dp, test_loader)
+            dp_accuracies.append(accuracy)
+            print(f"Round {round + 1}, Epsilon {epsilon}: Global DP model accuracy: {accuracy:.4f}")
 
     # Save accuracy data to .dat file
-    dat_filename = f'{dataset_name}_DP_FedAvg_epsilon_{epsilon}.dat'
-    with open(f'./log/{dat_filename}', 'w') as f:
-        for round_number, acc in enumerate(dp_accuracies, start=1):
-            f.write(f"{round_number} {acc}\n")
+        dat_filename = f'{dataset_name}_DP_FedAvg_epsilon_{epsilon}.dat'
+        with open(f'./log/{dat_filename}', 'w') as f:
+            for round_number, acc in enumerate(dp_accuracies, start=1):
+                f.write(f"{round_number} {acc}\n")
 
     # The plotting is moved here, outside the 'for round in range(num_rounds)' loop
-    plt.figure(figsize=(10, 8))
-    plt.plot(range(1, num_rounds + 1), dp_accuracies, label=f'DP-FedAvg ε={epsilon}', marker='o')
-    plt.xlabel('Global Round')
-    plt.ylabel('Testing Accuracy')
-    plt.title(f'{dataset_name} - DP-FedAvg Accuracy vs Rounds for ε={epsilon}')
-    plt.legend()
-    plt.grid(True)
-    plt.savefig(f'./log/{dataset_name}_DP_FedAvg_epsilon_{epsilon}.png')
-    plt.close()
+        plt.figure(figsize=(10, 8))
+        plt.plot(range(1, num_rounds + 1), dp_accuracies, label=f'DP-FedAvg ε={epsilon}', marker='o')
+        plt.xlabel('Global Round')
+        plt.ylabel('Testing Accuracy')
+        plt.title(f'{dataset_name} - DP-FedAvg Accuracy vs Rounds for ε={epsilon}')
+        plt.legend()
+        plt.grid(True)
+        plt.savefig(f'./log/{dataset_name}_DP_FedAvg_epsilon_{epsilon}.png')
+        plt.close()
 
-print("All simulations completed and results saved.")
+    print("All simulations completed and results saved.")
 
 
 if __name__ == "__main__":
-    dataset_name = 'CIFAR10'  # or 'MNIST'
+    dataset_name = 'MNIST'  # 'CIFAR10' or 'MNIST'
     num_clients = 4
     num_rounds = 5  # This is now defined in the 'main' part of the script
     local_epochs = 1

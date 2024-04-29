@@ -17,7 +17,7 @@ def plot_accuracy_vs_rounds(dataset_name):
     
     # Loop over each epsilon value and plot its data
     for epsilon, color in zip(epsilon_values, colors):
-        file_path = f'{log_directory}/{dataset_name}_epsilon_{epsilon}.dat'
+        file_path = f'{log_directory}/{dataset_name}_DP_FedAvg_epsilon_{epsilon}.dat'
         try:
             rounds = []
             accuracies = []

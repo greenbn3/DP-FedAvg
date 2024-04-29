@@ -4,7 +4,7 @@ import numpy as np
 
 def plot_accuracy_vs_rounds(dataset_name):
     log_directory = './log'
-    epsilon_values = [0.002, 1.0, 5.0, 10.0, 20.0, 30.0, 40.0, 50.0]
+    epsilon_values = [0.0, 1.0, 5.0, 10.0, 20.0, 30.0, 40.0, 50.0]
     colors = plt.cm.viridis(np.linspace(0, 1, len(epsilon_values)))  # Generate a color map
 
     # Create a plot

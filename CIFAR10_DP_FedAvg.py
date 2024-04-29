@@ -140,7 +140,7 @@ def run_fedavg(num_clients=4, num_rounds=5, local_epochs=1, epsilon_values=[0.00
     print("All simulations completed and results saved.")
 '''
 
-def run_fedavg(dataset_name='CIFAR10', num_clients=4, num_rounds=5, local_epochs=1, epsilon_values=[0.002, 1.0, 5.0, 10.0, 20.0, 30.0, 40.0, 50.0], delta=0.002):
+def run_fedavg(dataset_name='CIFAR10', num_clients=4, num_rounds=150, local_epochs=1, epsilon_values= [0.0, 1.0, 5.0, 10.0, 20.0, 30.0, 40.0, 50.0], delta=0.002):
     trainset, testset = load_dataset(dataset_name)  # Pass dataset_name to the load_dataset function
     client_loaders = partition_data(trainset, num_clients)
     test_loader = get_test_loader(testset)

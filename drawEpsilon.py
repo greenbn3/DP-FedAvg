@@ -4,7 +4,7 @@ import numpy as np
 
 def plot_accuracy_vs_rounds(dataset_name):
     log_directory = './log'
-    epsilon_values = [0.0, 1.0, 5.0, 10.0, 20.0, 30.0, 40.0, 50.0]
+    epsilon_values = [1.0, 5.0, 10.0, 20.0, 30.0, 40.0, 50.0]
     colors = plt.cm.viridis(np.linspace(0, 1, len(epsilon_values)))  # Generate a color map
 
     # Create a plot
@@ -34,11 +34,12 @@ def plot_accuracy_vs_rounds(dataset_name):
             print(f"No data file found for {dataset_name} with epsilon {epsilon}. Skipping...")
             continue
 
-    plt.title(f'Accuracy vs. Rounds for Different Epsilon Values ({dataset_name})')
-    plt.xlabel('Rounds')
-    plt.ylabel('Accuracy (%)')
-    plt.legend(title='Epsilon Values', loc='best')
+   # plt.title(f'Accuracy vs. Rounds for Different Epsilon Values ({dataset_name})')
+    plt.xlabel('Rounds', fontsize=16)
+    plt.ylabel('Accuracy (%)', fontsize=16)  
+    plt.legend(title='Epsilon Values', loc='best', fontsize=10.0)  
     plt.grid(True)
+    plt.tick_params(axis='both', which='major', labelsize=14)
     plt.savefig(f'./log/{dataset_name}_accuracy_vs_rounds.png')
     plt.show()
 

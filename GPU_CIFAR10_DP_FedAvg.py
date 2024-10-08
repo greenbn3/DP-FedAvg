@@ -20,19 +20,19 @@ print(f"Using device: {device}")
 print(f"Selected GPU: {torch.cuda.get_device_name(device)}")
 
 class SimpleCNN(nn.Module):
-    def __init__(self):
+    def __init__(self, input_channels=3):
         super(SimpleCNN, self).__init__()
-        self.conv1 = nn.Conv2d(3, 6, 5)
+        self.conv1 = nn.Conv2d(input_channels, 6, 5)
         self.pool = nn.MaxPool2d(2, 2)
         self.conv2 = nn.Conv2d(6, 16, 5)
-        self.fc1 = nn.Linear(16 * 5 * 5, 120)
+        self.fc1 = nn.Linear(16 * 4 * 4 if input_channels == 1 else 16 * 5 * 5, 120)
         self.fc2 = nn.Linear(120, 84)
         self.fc3 = nn.Linear(84, 10)
 
     def forward(self, x):
         x = self.pool(F.relu(self.conv1(x)))
         x = self.pool(F.relu(self.conv2(x)))
-        x = x.view(-1, 16 * 5 * 5)
+        x = x.view(x.size(0), -1)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         x = self.fc3(x)
@@ -48,11 +48,11 @@ def get_test_loader(testset):
     return test_loader
 
 def load_dataset(dataset_name):
-    transform = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
-    ])
     if dataset_name == 'CIFAR10':
+        transform = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+        ])
         trainset = datasets.CIFAR10(root='./data', train=True, download=True, transform=transform)
         testset = datasets.CIFAR10(root='./data', train=False, download=True, transform=transform)
     elif dataset_name == 'MNIST':
@@ -83,8 +83,8 @@ def train_client(loader, model, epochs, delta, epsilon, record_logits=False):
             if record_logits:
                 train_logits.extend([(logit, t) for logit, t in zip(output.detach().cpu().numpy(), target.cpu().numpy())])
 
-        print(f"Epoch {epoch + 1}: Memory allocated: {torch.cuda.memory_allocated(device)} bytes")
-        print(f"Epoch {epoch + 1}: Memory cached: {torch.cuda.memory_reserved(device)} bytes")
+       # print(f"Epoch {epoch + 1}: Memory allocated: {torch.cuda.memory_allocated(device)} bytes")
+       # print(f"Epoch {epoch + 1}: Memory cached: {torch.cuda.memory_reserved(device)} bytes")
 
     return model, train_logits if record_logits else model
 
@@ -134,12 +134,13 @@ def train_attack_model(X, y):
     print(f"Attack Model Accuracy: {accuracy:.4f}")
     return attack_model, accuracy
 
-def run_fedavg(dataset_name='MNIST', num_clients=4, num_rounds=5, local_epochs=1, epsilon_values=[0.0, 1.0, 5.0, 10.0, 20.0, 30.0, 40.0, 50.0], delta=0.002):
+def run_fedavg(dataset_name='MNIST', num_clients=4, num_rounds=10, local_epochs=1, epsilon_values=[0.0, 1.0, 5.0, 10.0, 20.0, 30.0, 40.0, 50.0, 1000.0], delta=0.002):
     trainset, testset = load_dataset(dataset_name)
     client_loaders = partition_data(trainset, num_clients)
     test_loader = get_test_loader(testset)
 
-    global_model = SimpleCNN().to(device)
+    input_channels = 1 if dataset_name == 'MNIST' else 3
+    global_model = SimpleCNN(input_channels=input_channels).to(device)
 
     if not os.path.exists('./log'):
         os.makedirs('./log')
@@ -148,7 +149,7 @@ def run_fedavg(dataset_name='MNIST', num_clients=4, num_rounds=5, local_epochs=1
 
     for epsilon in epsilon_values:
         dp_accuracies = []
-        global_model_dp = SimpleCNN().to(device)
+        global_model_dp = SimpleCNN(input_channels=input_channels).to(device)
 
         for round in range(num_rounds):
             client_models = [train_client(loader, global_model_dp, local_epochs, delta, epsilon)[0] for loader in client_loaders]
@@ -181,7 +182,6 @@ def run_fedavg(dataset_name='MNIST', num_clients=4, num_rounds=5, local_epochs=1
     # Create a table for Attack Model Accuracy vs Epsilon Values
     attack_df = pd.DataFrame(attack_results, columns=['Epsilon', 'Attack Model Accuracy'])
     plt.figure(figsize=(8, 4))
-    plt.colorbar()
     sns.heatmap(attack_df.set_index('Epsilon').T, annot=True, cmap='Blues', cbar=False, fmt='.4f')
     plt.title('Attack Model Accuracy vs Epsilon Values')
     plt.savefig('./log/attack_model_accuracy_table.png')

@@ -17,8 +17,6 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}")
 print(f"Selected GPU: {torch.cuda.get_device_name(device)}")
 
-
-
 class SimpleCNN(nn.Module):
     def __init__(self):
         super(SimpleCNN, self).__init__()
@@ -40,12 +38,10 @@ class SimpleCNN(nn.Module):
 
 def partition_data(trainset, num_clients=4):
     client_indices = [list(range(i * len(trainset) // num_clients, (i + 1) * len(trainset) // num_clients)) for i in range(num_clients)]
-    # Add num_workers and pin_memory to DataLoader to speed up data loading
     client_loaders = [DataLoader(trainset, batch_size=128, sampler=SubsetRandomSampler(indices), num_workers=4, pin_memory=True) for indices in client_indices]
     return client_loaders
 
 def get_test_loader(testset):
-    # Add num_workers and pin_memory to DataLoader for test data
     test_loader = DataLoader(testset, batch_size=128, shuffle=True, num_workers=4, pin_memory=True)
     return test_loader
 
@@ -72,20 +68,19 @@ def load_dataset(dataset_name):
 def train_client(loader, model, epochs, delta, epsilon, record_logits=False):
     optimizer = optim.SGD(model.parameters(), lr=0.1)
     train_logits = []
-    model.train()  # Make sure the model is in training mode
+    model.train()
     for epoch in range(epochs):
         for data, target in loader:
-            data, target = data.to(device), target.to(device)  # Move data and target to GPU
+            data, target = data.to(device), target.to(device)
             optimizer.zero_grad()
             output = model(data)
-            loss = F.cross_entropy(output, target)  # Ensure loss is computed on GPU
+            loss = F.cross_entropy(output, target)
             loss.backward()
             optimizer.step()
-            
-            if record_logits:
-                train_logits.append((output.detach().cpu().numpy(), target.cpu().numpy()))  # Save logits for later
 
-        # Print GPU memory usage after each epoch to monitor utilization
+            if record_logits:
+                train_logits.append((output.detach().cpu().numpy(), target.cpu().numpy()))
+
         print(f"Epoch {epoch + 1}: Memory allocated: {torch.cuda.memory_allocated(device)} bytes")
         print(f"Epoch {epoch + 1}: Memory cached: {torch.cuda.memory_reserved(device)} bytes")
 
@@ -104,30 +99,32 @@ def test_model(model, test_loader, record_logits=False):
     correct = 0
     with torch.no_grad():
         for data, target in test_loader:
-            data, target = data.to(device), target.to(device)  # Move data and target to GPU
+            data, target = data.to(device), target.to(device)
             output = model(data)
             pred = output.argmax(dim=1, keepdim=True)
             correct += pred.eq(target.view_as(pred)).sum().item()
 
             if record_logits:
-                test_logits.append((output.cpu().numpy(), target.cpu().numpy()))  # Save logits
+                test_logits.append((output.cpu().numpy(), target.cpu().numpy()))
     return 100. * correct / len(test_loader.dataset), test_logits if record_logits else 100. * correct / len(test_loader.dataset)
 
-def train_shadow_models(trainset, num_shadow_models=5, num_clients=4):
-    shadow_models = []
-    shadow_client_loaders = [partition_data(trainset, num_clients=num_clients) for _ in range(num_shadow_models)]
-    
-    for shadow_loader in shadow_client_loaders:
-        shadow_model = SimpleCNN().to(device)  # Move shadow model to GPU
-        client_models = [train_client(loader, shadow_model, epochs=1, delta=0.002, epsilon=10.0)[0] for loader in shadow_loader]
-        shadow_model = aggregate_models(shadow_model, client_models)
-        shadow_models.append(shadow_model)
-    
-    return shadow_models
-
 def prepare_attack_data(member_logits, non_member_logits):
-    X = np.concatenate([member_logits, non_member_logits])
-    y = np.concatenate([np.ones(len(member_logits)), np.zeros(len(non_member_logits))])
+    # Flatten logits if necessary to ensure consistent shape
+    member_logits_flat = [logit.flatten() for logit, _ in member_logits]
+    non_member_logits_flat = [logit.flatten() for logit, _ in non_member_logits]
+
+    # Convert to numpy arrays
+    member_logits_flat = np.array(member_logits_flat)
+    non_member_logits_flat = np.array(non_member_logits_flat)
+
+    # Ensure consistent shapes for concatenation
+    min_length = min(member_logits_flat.shape[1], non_member_logits_flat.shape[1])
+    member_logits_flat = member_logits_flat[:, :min_length]
+    non_member_logits_flat = non_member_logits_flat[:, :min_length]
+
+    # Concatenate member and non-member logits
+    X = np.concatenate([member_logits_flat, non_member_logits_flat])
+    y = np.concatenate([np.ones(len(member_logits_flat)), np.zeros(len(non_member_logits_flat))])
     return X, y
 
 def train_attack_model(X, y):
@@ -139,24 +136,24 @@ def train_attack_model(X, y):
     print(f"Attack Model Accuracy: {accuracy:.4f}")
     return attack_model
 
-def run_fedavg(dataset_name='CIFAR10', num_clients=4, num_rounds=150, local_epochs=1, epsilon_values=[0.0, 1.0, 5.0, 10.0, 20.0, 30.0, 40.0, 50.0], delta=0.002):
-    trainset, testset = load_dataset(dataset_name)  # Pass dataset_name to the load_dataset function
+def run_fedavg(dataset_name='CIFAR10', num_clients=4, num_rounds=15, local_epochs=1, epsilon_values=[0.0, 1.0, 5.0, 10.0, 20.0, 30.0, 40.0, 50.0], delta=0.002):
+    trainset, testset = load_dataset(dataset_name)
     client_loaders = partition_data(trainset, num_clients)
     test_loader = get_test_loader(testset)
 
-    global_model = SimpleCNN().to(device)  # Move global model to GPU
+    global_model = SimpleCNN().to(device)
 
     if not os.path.exists('./log'):
         os.makedirs('./log')
 
     for epsilon in epsilon_values:
         dp_accuracies = []
-        global_model_dp = SimpleCNN().to(device)  # Move DP model to GPU
+        global_model_dp = SimpleCNN().to(device)
 
         for round in range(num_rounds):
             client_models = [train_client(loader, global_model_dp, local_epochs, delta, epsilon)[0] for loader in client_loaders]
             global_model_dp = aggregate_models(global_model_dp, client_models)
-            accuracy, _ = test_model(global_model_dp, test_loader)  # Extract accuracy, ignore logits
+            accuracy, _ = test_model(global_model_dp, test_loader)
             dp_accuracies.append(accuracy)
             print(f"Round {round + 1}, Epsilon {epsilon}: Global DP model accuracy: {accuracy:.4f}")
         with open(f'./log/{dataset_name}_DP_FedAvg_epsilon_{epsilon}.dat', 'w') as f:
@@ -176,14 +173,14 @@ def run_fedavg(dataset_name='CIFAR10', num_clients=4, num_rounds=150, local_epoc
     print("All simulations completed and results saved.")
 
 if __name__ == "__main__":
-    dataset_name = 'CIFAR10'  # You can change this to other datasets as needed, like 'MNIST'
-    run_fedavg(dataset_name)  # Now passing dataset_name when calling run_fedavg
+    dataset_name = 'CIFAR10'
+    run_fedavg(dataset_name)
 
     # Run MIA
     trainset, testset = load_dataset('CIFAR10')
     client_loaders = partition_data(trainset, num_clients=4)
     test_loader = get_test_loader(testset)
-    global_model_dp = SimpleCNN().to(device)  # Move global model to GPU
+    global_model_dp = SimpleCNN().to(device)
 
     # Collect member logits
     _, member_logits = train_client(client_loaders[0], global_model_dp, epochs=1, delta=0.002, epsilon=10.0, record_logits=True)
@@ -194,4 +191,3 @@ if __name__ == "__main__":
     # Prepare and run attack model
     X, y = prepare_attack_data(member_logits, non_member_logits)
     attack_model = train_attack_model(X, y)
-

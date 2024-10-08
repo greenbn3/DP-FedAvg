@@ -10,6 +10,8 @@ from torch.utils.data import DataLoader, SubsetRandomSampler
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score
+import pandas as pd
+import seaborn as sns
 
 # Check if GPU is available and set the device accordingly
 # Explicitly set the device to GPU 0 (NVIDIA GeForce RTX 4060)
@@ -130,9 +132,9 @@ def train_attack_model(X, y):
     predictions = attack_model.predict(X_test)
     accuracy = accuracy_score(y_test, predictions)
     print(f"Attack Model Accuracy: {accuracy:.4f}")
-    return attack_model
+    return attack_model, accuracy
 
-def run_fedavg(dataset_name='CIFAR10', num_clients=4, num_rounds=15, local_epochs=1, epsilon_values=[0.0, 1.0, 5.0, 10.0, 20.0, 30.0, 40.0, 50.0], delta=0.002):
+def run_fedavg(dataset_name='MNIST', num_clients=4, num_rounds=5, local_epochs=1, epsilon_values=[0.0, 1.0, 5.0, 10.0, 20.0, 30.0, 40.0, 50.0], delta=0.002):
     trainset, testset = load_dataset(dataset_name)
     client_loaders = partition_data(trainset, num_clients)
     test_loader = get_test_loader(testset)
@@ -141,6 +143,8 @@ def run_fedavg(dataset_name='CIFAR10', num_clients=4, num_rounds=15, local_epoch
 
     if not os.path.exists('./log'):
         os.makedirs('./log')
+
+    attack_results = []
 
     for epsilon in epsilon_values:
         dp_accuracies = []
@@ -171,10 +175,20 @@ def run_fedavg(dataset_name='CIFAR10', num_clients=4, num_rounds=15, local_epoch
         _, non_member_logits = test_model(global_model_dp, test_loader, record_logits=True)
         X, y = prepare_attack_data(member_logits, non_member_logits)
         print(f"Running attack model for epsilon {epsilon}...")
-        train_attack_model(X, y)
+        _, attack_accuracy = train_attack_model(X, y)
+        attack_results.append((epsilon, attack_accuracy))
+
+    # Create a table for Attack Model Accuracy vs Epsilon Values
+    attack_df = pd.DataFrame(attack_results, columns=['Epsilon', 'Attack Model Accuracy'])
+    plt.figure(figsize=(8, 4))
+    plt.colorbar()
+    sns.heatmap(attack_df.set_index('Epsilon').T, annot=True, cmap='Blues', cbar=False, fmt='.4f')
+    plt.title('Attack Model Accuracy vs Epsilon Values')
+    plt.savefig('./log/attack_model_accuracy_table.png')
+    plt.close()
 
     print("All simulations completed and results saved.")
 
 if __name__ == "__main__":
-    dataset_name = 'CIFAR10'
+    dataset_name = 'MNIST'
     run_fedavg(dataset_name)

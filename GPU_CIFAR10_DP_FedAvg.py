@@ -79,7 +79,7 @@ def train_client(loader, model, epochs, delta, epsilon, record_logits=False):
             optimizer.step()
 
             if record_logits:
-                train_logits.append((output.detach().cpu().numpy(), target.cpu().numpy()))
+                train_logits.extend([(logit, t) for logit, t in zip(output.detach().cpu().numpy(), target.cpu().numpy())])
 
         print(f"Epoch {epoch + 1}: Memory allocated: {torch.cuda.memory_allocated(device)} bytes")
         print(f"Epoch {epoch + 1}: Memory cached: {torch.cuda.memory_reserved(device)} bytes")
@@ -105,26 +105,22 @@ def test_model(model, test_loader, record_logits=False):
             correct += pred.eq(target.view_as(pred)).sum().item()
 
             if record_logits:
-                test_logits.append((output.cpu().numpy(), target.cpu().numpy()))
+                test_logits.extend([(logit, t) for logit, t in zip(output.cpu().numpy(), target.cpu().numpy())])
     return 100. * correct / len(test_loader.dataset), test_logits if record_logits else 100. * correct / len(test_loader.dataset)
 
 def prepare_attack_data(member_logits, non_member_logits):
     # Flatten logits if necessary to ensure consistent shape
-    member_logits_flat = [logit.flatten() for logit, _ in member_logits]
-    non_member_logits_flat = [logit.flatten() for logit, _ in non_member_logits]
+    member_logits_flat = np.array([logit.flatten() for logit, _ in member_logits], dtype=object)
+    non_member_logits_flat = np.array([logit.flatten() for logit, _ in non_member_logits], dtype=object)
 
-    # Convert to numpy arrays
-    member_logits_flat = np.array(member_logits_flat)
-    non_member_logits_flat = np.array(non_member_logits_flat)
-
-    # Ensure consistent shapes for concatenation
-    min_length = min(member_logits_flat.shape[1], non_member_logits_flat.shape[1])
-    member_logits_flat = member_logits_flat[:, :min_length]
-    non_member_logits_flat = non_member_logits_flat[:, :min_length]
+    # Pad sequences to ensure consistent shape
+    max_length = max(max(len(logit) for logit in member_logits_flat), max(len(logit) for logit in non_member_logits_flat))
+    member_logits_padded = np.array([np.pad(logit, (0, max_length - len(logit))) for logit in member_logits_flat])
+    non_member_logits_padded = np.array([np.pad(logit, (0, max_length - len(logit))) for logit in non_member_logits_flat])
 
     # Concatenate member and non-member logits
-    X = np.concatenate([member_logits_flat, non_member_logits_flat])
-    y = np.concatenate([np.ones(len(member_logits_flat)), np.zeros(len(non_member_logits_flat))])
+    X = np.concatenate([member_logits_padded, non_member_logits_padded])
+    y = np.concatenate([np.ones(len(member_logits_padded)), np.zeros(len(non_member_logits_padded))])
     return X, y
 
 def train_attack_model(X, y):

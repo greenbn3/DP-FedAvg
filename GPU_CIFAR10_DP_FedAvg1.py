@@ -12,12 +12,8 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score
 
 # Check if GPU is available and set the device accordingly
-# Explicitly set the device to GPU 0 (NVIDIA GeForce RTX 4060)
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}")
-print(f"Selected GPU: {torch.cuda.get_device_name(device)}")
-
-
 
 class SimpleCNN(nn.Module):
     def __init__(self):
@@ -40,13 +36,11 @@ class SimpleCNN(nn.Module):
 
 def partition_data(trainset, num_clients=4):
     client_indices = [list(range(i * len(trainset) // num_clients, (i + 1) * len(trainset) // num_clients)) for i in range(num_clients)]
-    # Add num_workers and pin_memory to DataLoader to speed up data loading
-    client_loaders = [DataLoader(trainset, batch_size=128, sampler=SubsetRandomSampler(indices), num_workers=4, pin_memory=True) for indices in client_indices]
+    client_loaders = [DataLoader(trainset, batch_size=64, sampler=SubsetRandomSampler(indices)) for indices in client_indices]
     return client_loaders
 
 def get_test_loader(testset):
-    # Add num_workers and pin_memory to DataLoader for test data
-    test_loader = DataLoader(testset, batch_size=128, shuffle=True, num_workers=4, pin_memory=True)
+    test_loader = DataLoader(testset, batch_size=64, shuffle=True)
     return test_loader
 
 def load_dataset(dataset_name):
@@ -78,17 +72,12 @@ def train_client(loader, model, epochs, delta, epsilon, record_logits=False):
             data, target = data.to(device), target.to(device)  # Move data and target to GPU
             optimizer.zero_grad()
             output = model(data)
-            loss = F.cross_entropy(output, target)  # Ensure loss is computed on GPU
+            loss = F.cross_entropy(output, target)
             loss.backward()
             optimizer.step()
             
             if record_logits:
                 train_logits.append((output.detach().cpu().numpy(), target.cpu().numpy()))  # Save logits for later
-
-        # Print GPU memory usage after each epoch to monitor utilization
-        print(f"Epoch {epoch + 1}: Memory allocated: {torch.cuda.memory_allocated(device)} bytes")
-        print(f"Epoch {epoch + 1}: Memory cached: {torch.cuda.memory_reserved(device)} bytes")
-
     return model, train_logits if record_logits else model
 
 def aggregate_models(global_model, client_models):

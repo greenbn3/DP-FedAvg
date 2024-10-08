@@ -166,24 +166,15 @@ def run_fedavg(dataset_name='CIFAR10', num_clients=4, num_rounds=15, local_epoch
         plt.savefig(f'./log/{dataset_name}_DP_FedAvg_epsilon_{epsilon}.png')
         plt.close()
 
+        # Run MIA for each epsilon value
+        _, member_logits = train_client(client_loaders[0], global_model_dp, epochs=1, delta=0.002, epsilon=epsilon, record_logits=True)
+        _, non_member_logits = test_model(global_model_dp, test_loader, record_logits=True)
+        X, y = prepare_attack_data(member_logits, non_member_logits)
+        print(f"Running attack model for epsilon {epsilon}...")
+        train_attack_model(X, y)
+
     print("All simulations completed and results saved.")
 
 if __name__ == "__main__":
     dataset_name = 'CIFAR10'
     run_fedavg(dataset_name)
-
-    # Run MIA
-    trainset, testset = load_dataset('CIFAR10')
-    client_loaders = partition_data(trainset, num_clients=4)
-    test_loader = get_test_loader(testset)
-    global_model_dp = SimpleCNN().to(device)
-
-    # Collect member logits
-    _, member_logits = train_client(client_loaders[0], global_model_dp, epochs=1, delta=0.002, epsilon=10.0, record_logits=True)
-
-    # Collect non-member logits
-    _, non_member_logits = test_model(global_model_dp, test_loader, record_logits=True)
-
-    # Prepare and run attack model
-    X, y = prepare_attack_data(member_logits, non_member_logits)
-    attack_model = train_attack_model(X, y)

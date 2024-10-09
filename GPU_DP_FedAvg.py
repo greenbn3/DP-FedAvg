@@ -134,7 +134,7 @@ def train_attack_model(X, y):
     print(f"Attack Model Accuracy: {accuracy:.4f}")
     return attack_model, accuracy
 
-def run_fedavg(dataset_name='CIFAR10', num_clients=4, num_rounds=150, local_epochs=1, epsilon_values=[0.0, 1.0, 5.0, 10.0, 20.0, 30.0, 40.0, 50.0], delta=0.002):
+def run_fedavg(dataset_name, num_clients=4, num_rounds=5, local_epochs=1, epsilon_values=[0.0, 0.02, 1.0, 5.0, 10.0, 25.0, 50.0], delta=0.002):
     trainset, testset = load_dataset(dataset_name)
     client_loaders = partition_data(trainset, num_clients)
     test_loader = get_test_loader(testset)
@@ -146,6 +146,7 @@ def run_fedavg(dataset_name='CIFAR10', num_clients=4, num_rounds=150, local_epoc
         os.makedirs('./log')
 
     attack_results = []
+    global_accuracies = []
 
     for epsilon in epsilon_values:
         dp_accuracies = []
@@ -157,6 +158,7 @@ def run_fedavg(dataset_name='CIFAR10', num_clients=4, num_rounds=150, local_epoc
             accuracy, _ = test_model(global_model_dp, test_loader)
             dp_accuracies.append(accuracy)
             print(f"Round {round + 1}, Epsilon {epsilon}: Global DP model accuracy: {accuracy:.4f}")
+        global_accuracies.append((epsilon, dp_accuracies))
         with open(f'./log/{dataset_name}_DP_FedAvg_epsilon_{epsilon}.dat', 'w') as f:
             for round_number, acc in enumerate(dp_accuracies, start=1):
                 f.write(f"{round_number} {acc}\n")
@@ -182,10 +184,21 @@ def run_fedavg(dataset_name='CIFAR10', num_clients=4, num_rounds=150, local_epoc
     # Create a table for Attack Model Accuracy vs Epsilon Values
     attack_df = pd.DataFrame(attack_results, columns=['Epsilon', 'Attack Model Accuracy'])
     plt.figure(figsize=(8, 4))
-    plt.colorbar()
     sns.heatmap(attack_df.set_index('Epsilon').T, annot=True, cmap='Blues', cbar=False, fmt='.4f')
     plt.title('Attack Model Accuracy vs Epsilon Values')
     plt.savefig('./log/attack_model_accuracy_table.png')
+    plt.close()
+
+    # Create a plot for Global DP Model Accuracy vs Rounds for all Epsilon Values
+    plt.figure(figsize=(10, 8))
+    for epsilon, accuracies in global_accuracies:
+        plt.plot(range(1, num_rounds + 1), accuracies, label=f'ε={epsilon}', marker='o')
+    plt.xlabel('Global Round')
+    plt.ylabel('Testing Accuracy')
+    plt.title(f'{dataset_name} - DP-FedAvg Accuracy vs Rounds')
+    plt.legend()
+    plt.grid(True)
+    plt.savefig(f'./log/{dataset_name}_accuracy_vs_rounds.png')
     plt.close()
 
     print("All simulations completed and results saved.")

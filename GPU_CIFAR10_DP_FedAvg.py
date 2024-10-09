@@ -83,8 +83,8 @@ def train_client(loader, model, epochs, delta, epsilon, record_logits=False):
             if record_logits:
                 train_logits.extend([(logit, t) for logit, t in zip(output.detach().cpu().numpy(), target.cpu().numpy())])
 
-       # print(f"Epoch {epoch + 1}: Memory allocated: {torch.cuda.memory_allocated(device)} bytes")
-       # print(f"Epoch {epoch + 1}: Memory cached: {torch.cuda.memory_reserved(device)} bytes")
+        # print(f"Epoch {epoch + 1}: Memory allocated: {torch.cuda.memory_allocated(device)} bytes")
+        # print(f"Epoch {epoch + 1}: Memory cached: {torch.cuda.memory_reserved(device)} bytes")
 
     return model, train_logits if record_logits else model
 
@@ -134,7 +134,7 @@ def train_attack_model(X, y):
     print(f"Attack Model Accuracy: {accuracy:.4f}")
     return attack_model, accuracy
 
-def run_fedavg(dataset_name='MNIST', num_clients=4, num_rounds=10, local_epochs=1, epsilon_values=[0.0, 1.0, 5.0, 10.0, 20.0, 30.0, 40.0, 50.0, 1000.0], delta=0.002):
+def run_fedavg(dataset_name='CIFAR10', num_clients=4, num_rounds=8, local_epochs=1, epsilon_values=[0.0, 1.0, 5.0, 10.0, 20.0, 30.0, 40.0, 50.0], delta=0.002):
     trainset, testset = load_dataset(dataset_name)
     client_loaders = partition_data(trainset, num_clients)
     test_loader = get_test_loader(testset)
@@ -190,5 +190,5 @@ def run_fedavg(dataset_name='MNIST', num_clients=4, num_rounds=10, local_epochs=
     print("All simulations completed and results saved.")
 
 if __name__ == "__main__":
-    dataset_name = 'MNIST'
+    dataset_name = 'CIFAR10'  # Changed dataset to MNIST for testing
     run_fedavg(dataset_name)

@@ -12,12 +12,13 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score
 import pandas as pd
 import seaborn as sns
+from opacus import PrivacyEngine
 
 # Check if GPU is available and set the device accordingly
-# Explicitly set the device to GPU 0 (NVIDIA GeForce RTX 4060)
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}")
-print(f"Selected GPU: {torch.cuda.get_device_name(device)}")
+if torch.cuda.is_available():
+    print(f"Selected GPU: {torch.cuda.get_device_name(device)}")
 
 class SimpleCNN(nn.Module):
     def __init__(self, input_channels=3):
@@ -69,6 +70,14 @@ def load_dataset(dataset_name):
 
 def train_client(loader, model, epochs, delta, epsilon, record_logits=False):
     optimizer = optim.SGD(model.parameters(), lr=0.1)
+    privacy_engine = PrivacyEngine()
+    model, optimizer, loader = privacy_engine.make_private(
+        module=model,
+        optimizer=optimizer,
+        data_loader=loader,
+        noise_multiplier=epsilon,
+        max_grad_norm=1.0
+    )
     train_logits = []
     model.train()
     for epoch in range(epochs):
@@ -82,9 +91,6 @@ def train_client(loader, model, epochs, delta, epsilon, record_logits=False):
 
             if record_logits:
                 train_logits.extend([(logit, t) for logit, t in zip(output.detach().cpu().numpy(), target.cpu().numpy())])
-
-        # print(f"Epoch {epoch + 1}: Memory allocated: {torch.cuda.memory_allocated(device)} bytes")
-        # print(f"Epoch {epoch + 1}: Memory cached: {torch.cuda.memory_reserved(device)} bytes")
 
     return model, train_logits if record_logits else model
 
@@ -111,16 +117,13 @@ def test_model(model, test_loader, record_logits=False):
     return 100. * correct / len(test_loader.dataset), test_logits if record_logits else 100. * correct / len(test_loader.dataset)
 
 def prepare_attack_data(member_logits, non_member_logits):
-    # Flatten logits if necessary to ensure consistent shape
     member_logits_flat = np.array([logit.flatten() for logit, _ in member_logits], dtype=object)
     non_member_logits_flat = np.array([logit.flatten() for logit, _ in non_member_logits], dtype=object)
 
-    # Pad sequences to ensure consistent shape
     max_length = max(max(len(logit) for logit in member_logits_flat), max(len(logit) for logit in non_member_logits_flat))
     member_logits_padded = np.array([np.pad(logit, (0, max_length - len(logit))) for logit in member_logits_flat])
     non_member_logits_padded = np.array([np.pad(logit, (0, max_length - len(logit))) for logit in non_member_logits_flat])
 
-    # Concatenate member and non-member logits
     X = np.concatenate([member_logits_padded, non_member_logits_padded])
     y = np.concatenate([np.ones(len(member_logits_padded)), np.zeros(len(non_member_logits_padded))])
     return X, y
@@ -134,7 +137,7 @@ def train_attack_model(X, y):
     print(f"Attack Model Accuracy: {accuracy:.4f}")
     return attack_model, accuracy
 
-def run_fedavg(dataset_name='CIFAR10', num_clients=4, num_rounds=8, local_epochs=1, epsilon_values=[0.0, 1.0, 5.0, 10.0, 20.0, 30.0, 40.0, 50.0], delta=0.002):
+def run_fedavg(dataset_name, num_clients=4, num_rounds=5, local_epochs=1, epsilon_values=[0.0, 0.02, 1.0, 5.0, 10.0, 25.0, 50.0], delta=0.002):
     trainset, testset = load_dataset(dataset_name)
     client_loaders = partition_data(trainset, num_clients)
     test_loader = get_test_loader(testset)
@@ -146,6 +149,7 @@ def run_fedavg(dataset_name='CIFAR10', num_clients=4, num_rounds=8, local_epochs
         os.makedirs('./log')
 
     attack_results = []
+    global_accuracies = []
 
     for epsilon in epsilon_values:
         dp_accuracies = []
@@ -157,21 +161,21 @@ def run_fedavg(dataset_name='CIFAR10', num_clients=4, num_rounds=8, local_epochs
             accuracy, _ = test_model(global_model_dp, test_loader)
             dp_accuracies.append(accuracy)
             print(f"Round {round + 1}, Epsilon {epsilon}: Global DP model accuracy: {accuracy:.4f}")
+        global_accuracies.append((epsilon, dp_accuracies))
         with open(f'./log/{dataset_name}_DP_FedAvg_epsilon_{epsilon}.dat', 'w') as f:
             for round_number, acc in enumerate(dp_accuracies, start=1):
                 f.write(f"{round_number} {acc}\n")
 
         plt.figure(figsize=(10, 8))
-        plt.plot(range(1, num_rounds + 1), dp_accuracies, label=f'DP-FedAvg ε={epsilon}', marker='o')
+        plt.plot(range(1, num_rounds + 1), dp_accuracies, label=f'DP-FedAvg \u03b5={epsilon}', marker='o')
         plt.xlabel('Global Round')
         plt.ylabel('Testing Accuracy')
-        plt.title(f'{dataset_name} - DP-FedAvg Accuracy vs Rounds for ε={epsilon}')
+        plt.title(f'{dataset_name} - DP-FedAvg Accuracy vs Rounds for \u03b5={epsilon}')
         plt.legend()
         plt.grid(True)
         plt.savefig(f'./log/{dataset_name}_DP_FedAvg_epsilon_{epsilon}.png')
         plt.close()
 
-        # Run MIA for each epsilon value
         _, member_logits = train_client(client_loaders[0], global_model_dp, epochs=1, delta=0.002, epsilon=epsilon, record_logits=True)
         _, non_member_logits = test_model(global_model_dp, test_loader, record_logits=True)
         X, y = prepare_attack_data(member_logits, non_member_logits)
@@ -179,7 +183,6 @@ def run_fedavg(dataset_name='CIFAR10', num_clients=4, num_rounds=8, local_epochs
         _, attack_accuracy = train_attack_model(X, y)
         attack_results.append((epsilon, attack_accuracy))
 
-    # Create a table for Attack Model Accuracy vs Epsilon Values
     attack_df = pd.DataFrame(attack_results, columns=['Epsilon', 'Attack Model Accuracy'])
     plt.figure(figsize=(8, 4))
     sns.heatmap(attack_df.set_index('Epsilon').T, annot=True, cmap='Blues', cbar=False, fmt='.4f')
@@ -187,8 +190,19 @@ def run_fedavg(dataset_name='CIFAR10', num_clients=4, num_rounds=8, local_epochs
     plt.savefig('./log/attack_model_accuracy_table.png')
     plt.close()
 
+    plt.figure(figsize=(10, 8))
+    for epsilon, accuracies in global_accuracies:
+        plt.plot(range(1, num_rounds + 1), accuracies, label=f'\u03b5={epsilon}', marker='o')
+    plt.xlabel('Global Round')
+    plt.ylabel('Testing Accuracy')
+    plt.title(f'{dataset_name} - DP-FedAvg Accuracy vs Rounds')
+    plt.legend()
+    plt.grid(True)
+    plt.savefig(f'./log/{dataset_name}_accuracy_vs_rounds.png')
+    plt.close()
+
     print("All simulations completed and results saved.")
 
 if __name__ == "__main__":
-    dataset_name = 'CIFAR10'  # Changed dataset to MNIST for testing
+    dataset_name = 'CIFAR10'
     run_fedavg(dataset_name)

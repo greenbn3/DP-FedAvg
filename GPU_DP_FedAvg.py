@@ -134,7 +134,7 @@ def train_attack_model(X, y):
     print(f"Attack Model Accuracy: {accuracy:.4f}")
     return attack_model, accuracy
 
-def run_fedavg(dataset_name, num_clients=4, num_rounds=5, local_epochs=1, epsilon_values=[0.0, 0.02, 1.0, 5.0, 10.0, 25.0, 50.0], delta=0.002):
+def run_fedavg(dataset_name, num_clients=4, num_rounds=125, local_epochs=1, epsilon_values=[0.0, 0.02, 1.0, 5.0, 10.0, 25.0, 50.0], delta=0.002):
     trainset, testset = load_dataset(dataset_name)
     client_loaders = partition_data(trainset, num_clients)
     test_loader = get_test_loader(testset)

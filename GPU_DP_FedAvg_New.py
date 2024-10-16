@@ -49,7 +49,7 @@ class SimpleCNN(nn.Module):
         x = self.fc3(x)
         return x
 
-def partition_data(trainset, num_clients=4):
+def partition_data(trainset, num_clients=5):
     client_indices = [list(range(i * len(trainset) // num_clients, (i + 1) * len(trainset) // num_clients)) for i in range(num_clients)]
     client_loaders = [DataLoader(trainset, batch_size=128, sampler=SubsetRandomSampler(indices), num_workers=4, pin_memory=True) for indices in client_indices]
     return client_loaders
@@ -82,17 +82,18 @@ def load_dataset(dataset_name):
 
 def train_client(loader, model, epochs, delta, epsilon, record_logits=False):
     model.to(device)
-    lr = 0.001 if epsilon == 0.0 else 0.0005
+    lr = 0.001 if epsilon == 0.0 else 0.0001 + 0.0001 / epsilon
     optimizer = optim.Adam(model.parameters(), lr=lr)
 
+    privacy_engine = None
     if epsilon > 0.0:
         privacy_engine = PrivacyEngine()
         model, optimizer, loader = privacy_engine.make_private(
             module=model,
             optimizer=optimizer,
             data_loader=loader,
-            noise_multiplier=2.0,  # Increased noise multiplier for stronger DP effect
-            max_grad_norm=1.0
+            noise_multiplier=0.5,  # Adjusted noise multiplier for DP
+            max_grad_norm=0.5  # Adjusted max grad norm for DP
         )
 
     train_logits = []
@@ -114,12 +115,9 @@ def train_client(loader, model, epochs, delta, epsilon, record_logits=False):
         print(f"Epoch {epoch + 1}, Loss: {running_loss / len(loader):.4f}")
 
     # Print effective epsilon for DP training
-    if epsilon > 0.0:
+    if privacy_engine is not None:
         effective_epsilon = privacy_engine.get_epsilon(delta)
         print(f"Effective epsilon after training: {effective_epsilon:.2f}")
-
-    # Delete privacy engine to avoid adding hooks multiple times
-    if epsilon > 0.0:
         del privacy_engine
 
     return model, train_logits if record_logits else model
@@ -148,28 +146,7 @@ def test_model(model, test_loader, record_logits=False):
                 test_logits.extend([(logit, t) for logit, t in zip(output.cpu().numpy(), target.cpu().numpy())])
     return 100. * correct / len(test_loader.dataset), test_logits if record_logits else 100. * correct / len(test_loader.dataset)
 
-def prepare_attack_data(member_logits, non_member_logits):
-    member_logits_flat = np.array([logit.flatten() for logit, _ in member_logits], dtype=object)
-    non_member_logits_flat = np.array([logit.flatten() for logit, _ in non_member_logits], dtype=object)
-
-    max_length = max(max(len(logit) for logit in member_logits_flat), max(len(logit) for logit in non_member_logits_flat))
-    member_logits_padded = np.array([np.pad(logit, (0, max_length - len(logit))) for logit in member_logits_flat])
-    non_member_logits_padded = np.array([np.pad(logit, (0, max_length - len(logit))) for logit in non_member_logits_flat])
-
-    X = np.concatenate([member_logits_padded, non_member_logits_padded])
-    y = np.concatenate([np.ones(len(member_logits_padded)), np.zeros(len(non_member_logits_padded))])
-    return X, y
-
-def train_attack_model(X, y):
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
-    attack_model = LogisticRegression()
-    attack_model.fit(X_train, y_train)
-    predictions = attack_model.predict(X_test)
-    accuracy = accuracy_score(y_test, predictions)
-    print(f"Attack Model Accuracy: {accuracy:.4f}")
-    return attack_model, accuracy
-
-def run_fedavg(dataset_name, num_clients=4, num_rounds=20, local_epochs=5, epsilon_values=[0.0, 0.02, 1.0, 5.0, 10.0, 25.0, 50.0], delta=0.002):
+def run_fedavg(dataset_name, num_clients=5, num_rounds=5, local_epochs=5, epsilon_values=[0.0, 10.0, 25.0, 50.0], delta=0.002):
     trainset, testset, img_size = load_dataset(dataset_name)
     client_loaders = partition_data(trainset, num_clients)
     test_loader = get_test_loader(testset)
@@ -179,11 +156,11 @@ def run_fedavg(dataset_name, num_clients=4, num_rounds=20, local_epochs=5, epsil
     if not os.path.exists('./log'):
         os.makedirs('./log')
 
-    attack_results = []
     global_accuracies = []
 
     for epsilon in epsilon_values:
         dp_accuracies = []
+        # Reinitialize the global model for each epsilon value
         global_model_dp = SimpleCNN(input_channels=input_channels, img_size=img_size).to(device)
 
         for round in range(num_rounds):
@@ -233,5 +210,5 @@ def run_fedavg(dataset_name, num_clients=4, num_rounds=20, local_epochs=5, epsil
 
 
 if __name__ == "__main__":
-    dataset_name = 'MNIST'
+    dataset_name = 'CIFAR10'
     run_fedavg(dataset_name)

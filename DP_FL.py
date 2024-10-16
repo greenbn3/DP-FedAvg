@@ -10,6 +10,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 from torch.utils.data import random_split
 from opacus import PrivacyEngine  # Import Opacus for differential privacy
+import os
+import warnings
+import signal
+
+# Suppress Opacus warnings
+warnings.filterwarnings("ignore", category=UserWarning, module="opacus")
 
 # Check if GPU is available
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -46,6 +52,14 @@ transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5
 mnist_dataset = datasets.MNIST(root='./data', train=True, download=True, transform=transform)
 cifar10_dataset = datasets.CIFAR10(root='./data', train=True, download=True, transform=transform)
 
+# Handle interrupt signal to reset GPU resources
+def handle_interrupt(signal, frame):
+    print("\nInterrupt received, resetting GPU resources...")
+    torch.cuda.empty_cache()
+    exit(0)
+
+signal.signal(signal.SIGINT, handle_interrupt)
+
 # Federated learning client class
 class Client:
     def __init__(self, model, dataset, batch_size, learning_rate, device, epsilon=None, delta=1e-5):
@@ -78,12 +92,16 @@ class Client:
         self.model.train()
         for epoch in range(epochs):
             for batch_idx, (data, target) in enumerate(self.dataloader):
+                #print(f"Training batch {batch_idx} in epoch {epoch}...")
                 data, target = data.to(self.device), target.to(self.device)
                 self.optimizer.zero_grad()
                 output = self.model(data)
                 loss = self.loss_fn(output, target)
                 loss.backward()
                 self.optimizer.step()
+                # Freeing up memory to prevent memory leaks
+                del data, target, output, loss
+                torch.cuda.empty_cache()
 
     def get_weights(self):
         if hasattr(self.model, '_module'):
@@ -98,8 +116,6 @@ class Client:
             self.model._module.load_state_dict(state_dict)
         else:
             self.model.load_state_dict(state_dict)
-
-
 
 # Federated Learning Class
 class FederatedLearning:
@@ -173,11 +189,15 @@ def main():
     # Train Federated Model
     accuracies = fed_learning.train(rounds, epochs)
 
+    # Create log directory if it doesn't exist
+    os.makedirs('./log', exist_ok=True)
+
     # Plot Accuracy vs Training Rounds
     plt.plot(range(1, rounds + 1), accuracies)
     plt.xlabel('Training Rounds')
     plt.ylabel('Accuracy (%)')
     plt.title('Global Model Accuracy vs Training Rounds')
+    plt.savefig(f'./log/{dataset_choice}_{epsilon}_accuracy_vs_rounds.png')
     plt.show()
 
 if __name__ == "__main__":

@@ -178,7 +178,7 @@ def main():
     num_clients = 5
     rounds = 20
     epochs = 1
-    epsilon = "none"
+    epsilon = 50.0
     #num_clients = int(input("Enter number of clients: "))
     #rounds = int(input("Enter number of training rounds: "))
     #epochs = int(input("Enter number of epochs per round: "))

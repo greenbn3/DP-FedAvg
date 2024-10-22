@@ -88,11 +88,16 @@ class Client:
             return 1.0 / self.epsilon  # Adjust this calculation as needed
         return 0.0
 
+    def log_memory_usage(self):
+        print(f"Allocated memory: {torch.cuda.memory_allocated() / 1024**2:.2f} MB")
+        print(f"Cached memory: {torch.cuda.memory_reserved() / 1024**2:.2f} MB")
+
     def train(self, epochs):
         self.model.train()
         for epoch in range(epochs):
             for batch_idx, (data, target) in enumerate(self.dataloader):
-                #print(f"Training batch {batch_idx} in epoch {epoch}...")
+                print(f"Training batch {batch_idx} in epoch {epoch}...")
+                self.log_memory_usage()  # Log memory usage
                 data, target = data.to(self.device), target.to(self.device)
                 self.optimizer.zero_grad()
                 output = self.model(data)
@@ -148,7 +153,7 @@ class FederatedLearning:
 
     def evaluate_global_model(self):
         self.global_model.eval()
-        test_loader = DataLoader(self.clients[0].dataset, batch_size=64, shuffle=False)
+        test_loader = DataLoader(self.clients[0].dataset, batch_size=32, shuffle=False)
         correct, total = 0, 0
         with torch.no_grad():
             for data, target in test_loader:
@@ -175,14 +180,14 @@ def main():
         print("Invalid dataset choice.")
         return
 
-    num_clients = 5
+    num_clients = 2
     rounds = 20
     epochs = 1
-    epsilon = 50.0
+    epsilon = 10.0
     #num_clients = int(input("Enter number of clients: "))
     #rounds = int(input("Enter number of training rounds: "))
     #epochs = int(input("Enter number of epochs per round: "))
-    # epsilon = input("Enter privacy epsilon value (or 'none' for no privacy): ").strip().lower()
+    #epsilon = input("Enter privacy epsilon value (or 'none' for no privacy): ").strip().lower()
     epsilon = float(epsilon) if epsilon != 'none' else None
 
     # Create clients
@@ -198,10 +203,11 @@ def main():
     os.makedirs('./log', exist_ok=True)
 
     # Plot Accuracy vs Training Rounds
-    plt.plot(range(1, rounds + 1), accuracies)
+    plt.plot(range(1, rounds + 1), accuracies, label=f'ε = {epsilon}')
     plt.xlabel('Training Rounds')
     plt.ylabel('Accuracy (%)')
-    plt.title('Global Model Accuracy vs Training Rounds')
+    plt.title(f'Global Model Accuracy vs Training Rounds (ε = {epsilon})')
+    plt.legend()
     plt.savefig(f'./log/{dataset_choice}_{epsilon}_accuracy_vs_rounds.png')
     plt.show()
 

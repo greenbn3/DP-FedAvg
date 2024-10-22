@@ -163,7 +163,8 @@ class FederatedLearning:
 
 # Main function
 def main():
-    dataset_choice = input("Choose dataset (mnist/cifar10): ").strip().lower()
+    dataset_choice = "mnist"
+    #dataset_choice = input("Choose dataset (mnist/cifar10): ").strip().lower()
     if dataset_choice == "mnist":
         dataset = mnist_dataset
         model_type = mnist_model
@@ -174,10 +175,14 @@ def main():
         print("Invalid dataset choice.")
         return
 
-    num_clients = int(input("Enter number of clients: "))
-    rounds = int(input("Enter number of training rounds: "))
-    epochs = int(input("Enter number of epochs per round: "))
-    epsilon = input("Enter privacy epsilon value (or 'none' for no privacy): ").strip().lower()
+    num_clients = 5
+    rounds = 20
+    epochs = 1
+    epsilon = "none"
+    #num_clients = int(input("Enter number of clients: "))
+    #rounds = int(input("Enter number of training rounds: "))
+    #epochs = int(input("Enter number of epochs per round: "))
+    # epsilon = input("Enter privacy epsilon value (or 'none' for no privacy): ").strip().lower()
     epsilon = float(epsilon) if epsilon != 'none' else None
 
     # Create clients

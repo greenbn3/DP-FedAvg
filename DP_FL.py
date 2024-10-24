@@ -13,6 +13,7 @@ from opacus import PrivacyEngine  # Import Opacus for differential privacy
 import os
 import warnings
 import signal
+import csv
 
 # Suppress Opacus warnings
 warnings.filterwarnings("ignore", category=UserWarning, module="opacus")
@@ -181,9 +182,9 @@ def main():
         return
 
     num_clients = 2
-    rounds = 20
+    rounds = 100
     epochs = 1
-    epsilon = 10.0
+    epsilon = 25.0
     #num_clients = int(input("Enter number of clients: "))
     #rounds = int(input("Enter number of training rounds: "))
     #epochs = int(input("Enter number of epochs per round: "))
@@ -201,6 +202,14 @@ def main():
 
     # Create log directory if it doesn't exist
     os.makedirs('./log', exist_ok=True)
+
+    # Save accuracy data to CSV
+    csv_filename = f'./log/{dataset_choice}_{epsilon}_accuracy_data.csv'
+    with open(csv_filename, mode='w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(['Round', 'Accuracy'])
+        for round_num, accuracy in enumerate(accuracies, start=1):
+            writer.writerow([round_num, accuracy])
 
     # Plot Accuracy vs Training Rounds
     plt.plot(range(1, rounds + 1), accuracies, label=f'ε = {epsilon}')

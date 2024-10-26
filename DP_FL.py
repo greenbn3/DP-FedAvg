@@ -169,7 +169,7 @@ class FederatedLearning:
 
 # Main function
 def main():
-    dataset_choice = "mnist"
+    dataset_choice = "cifar10"
     #dataset_choice = input("Choose dataset (mnist/cifar10): ").strip().lower()
     if dataset_choice == "mnist":
         dataset = mnist_dataset
@@ -184,7 +184,7 @@ def main():
     num_clients = 2
     rounds = 100
     epochs = 1
-    epsilon = "none"
+    epsilon = 50.0
     #num_clients = int(input("Enter number of clients: "))
     #rounds = int(input("Enter number of training rounds: "))
     #epochs = int(input("Enter number of epochs per round: "))

@@ -1,5 +1,3 @@
-MNIST:
-none
 CIFAR10:
 0.01
 0.1

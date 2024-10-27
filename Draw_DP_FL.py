@@ -1,10 +1,12 @@
+import matplotlib
+matplotlib.use('Agg')  # Use non-GUI backend
 import matplotlib.pyplot as plt
 import csv
 import os
 
 # Define the epsilon values you want to plot
-epsilon_values = ["None", 0.01, 0.1, 1.0, 10.0, 25.0, 50.0]
-dataset_choice = "cifar10"  # or "cifar10" if you have CIFAR10 data
+epsilon_values = ["None", 0.01, 0.1, 0.5, 1.0, 10.0, 25.0, 50.0]
+dataset_choice = "mnist"  # or "cifar10" if you have CIFAR10 data
 
 # Create a plot
 plt.figure(figsize=(10, 6))
@@ -47,4 +49,4 @@ plt.grid(True)
 plt.savefig(f'./log/{dataset_choice}_accuracy_comparison.png')
 
 # Show the plot
-plt.show()
+#plt.show()

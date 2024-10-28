@@ -41,7 +41,7 @@ for epsilon in epsilon_values:
 # Add labels and title
 plt.xlabel('Training Rounds')
 plt.ylabel('Accuracy (%)')
-plt.title('Global Model Accuracy vs Training Rounds')
+plt.title(f'Global Model Accuracy vs Training Rounds ({dataset_choice})')
 plt.legend()
 plt.grid(True)
 

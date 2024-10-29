@@ -1,12 +1,30 @@
 #!/bin/bash
 
+# ===========================
+# Initial Configuration
+# ===========================
+
 # Exit immediately if a command exits with a non-zero status
 set -e
 
-# Optional: Uncomment the following line to print each command before executing it
+# Optional: Uncomment the following line to print each command before executing it (useful for debugging)
 set -x
 
+# ===========================
+# Initialize Conda
+# ===========================
+
+# Source the conda.sh script to enable conda commands
+# This path is based on your conda info output
+source "/home/greenbn3/miniconda3/etc/profile.d/conda.sh"
+
+# Activate the desired Conda environment
 conda activate dp_fedavg_env
+
+# Verify that the correct environment is activated
+echo "Activated Conda Environment: $(conda info --envs | grep '*' | awk '{print $1}')"
+echo "Environment Path: /home/greenbn3/miniconda3/envs/dp_fedavg_env"
+echo ""
 
 # ===========================
 # Configuration Parameters
@@ -58,7 +76,13 @@ run_training() {
     fi
 
     # Define the log file name
-    log_file="${LOG_DIR}/${dataset}_${epsilon}_training.log"
+    # Replace 'none' with 'none' string for consistency
+    epsilon_str=${epsilon}
+    if [ "$epsilon" == "none" ]; then
+        epsilon_str="none"
+    fi
+
+    log_file="${LOG_DIR}/${dataset}_${epsilon_str}_training.log"
 
     echo "Executing command:"
     echo "$CMD"

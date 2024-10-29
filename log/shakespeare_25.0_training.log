@@ -1,0 +1,205 @@
+/home/greenbn3/miniconda3/envs/dp_fedavg_env/lib/python3.12/site-packages/torch/nn/modules/module.py:1827: FutureWarning: Using a non-full backward hook when the forward contains multiple autograd Nodes is deprecated and will be removed in future versions. This hook will be missing some grad_input. Please use register_full_backward_hook to get the documented behavior.
+  self._maybe_warn_non_full_backward_hook(args, result, grad_fn)
+/home/greenbn3/DP-FedAvg/DP_FL.py:270: UserWarning: FigureCanvasAgg is non-interactive, and thus cannot be shown
+  plt.show()
+Using device: cuda
+Round 1/100
+Global Model Accuracy: 12.64%
+Round 2/100
+Global Model Accuracy: 10.91%
+Round 3/100
+Global Model Accuracy: 14.16%
+Round 4/100
+Global Model Accuracy: 16.18%
+Round 5/100
+Global Model Accuracy: 11.81%
+Round 6/100
+Global Model Accuracy: 19.69%
+Round 7/100
+Global Model Accuracy: 15.76%
+Round 8/100
+Global Model Accuracy: 13.63%
+Round 9/100
+Global Model Accuracy: 16.93%
+Round 10/100
+Global Model Accuracy: 20.44%
+Round 11/100
+Global Model Accuracy: 19.84%
+Round 12/100
+Global Model Accuracy: 15.71%
+Round 13/100
+Global Model Accuracy: 16.78%
+Round 14/100
+Global Model Accuracy: 19.48%
+Round 15/100
+Global Model Accuracy: 19.86%
+Round 16/100
+Global Model Accuracy: 17.79%
+Round 17/100
+Global Model Accuracy: 16.82%
+Round 18/100
+Global Model Accuracy: 17.21%
+Round 19/100
+Global Model Accuracy: 14.03%
+Round 20/100
+Global Model Accuracy: 12.94%
+Round 21/100
+Global Model Accuracy: 12.75%
+Round 22/100
+Global Model Accuracy: 14.30%
+Round 23/100
+Global Model Accuracy: 16.22%
+Round 24/100
+Global Model Accuracy: 20.48%
+Round 25/100
+Global Model Accuracy: 17.92%
+Round 26/100
+Global Model Accuracy: 16.16%
+Round 27/100
+Global Model Accuracy: 17.84%
+Round 28/100
+Global Model Accuracy: 19.25%
+Round 29/100
+Global Model Accuracy: 20.10%
+Round 30/100
+Global Model Accuracy: 17.82%
+Round 31/100
+Global Model Accuracy: 20.52%
+Round 32/100
+Global Model Accuracy: 21.12%
+Round 33/100
+Global Model Accuracy: 17.97%
+Round 34/100
+Global Model Accuracy: 16.79%
+Round 35/100
+Global Model Accuracy: 14.79%
+Round 36/100
+Global Model Accuracy: 16.89%
+Round 37/100
+Global Model Accuracy: 14.57%
+Round 38/100
+Global Model Accuracy: 15.55%
+Round 39/100
+Global Model Accuracy: 14.72%
+Round 40/100
+Global Model Accuracy: 17.70%
+Round 41/100
+Global Model Accuracy: 16.46%
+Round 42/100
+Global Model Accuracy: 19.53%
+Round 43/100
+Global Model Accuracy: 22.75%
+Round 44/100
+Global Model Accuracy: 20.41%
+Round 45/100
+Global Model Accuracy: 19.84%
+Round 46/100
+Global Model Accuracy: 21.75%
+Round 47/100
+Global Model Accuracy: 21.67%
+Round 48/100
+Global Model Accuracy: 23.24%
+Round 49/100
+Global Model Accuracy: 21.64%
+Round 50/100
+Global Model Accuracy: 20.74%
+Round 51/100
+Global Model Accuracy: 21.35%
+Round 52/100
+Global Model Accuracy: 21.16%
+Round 53/100
+Global Model Accuracy: 20.14%
+Round 54/100
+Global Model Accuracy: 18.68%
+Round 55/100
+Global Model Accuracy: 19.39%
+Round 56/100
+Global Model Accuracy: 19.97%
+Round 57/100
+Global Model Accuracy: 19.60%
+Round 58/100
+Global Model Accuracy: 19.50%
+Round 59/100
+Global Model Accuracy: 20.73%
+Round 60/100
+Global Model Accuracy: 19.63%
+Round 61/100
+Global Model Accuracy: 21.30%
+Round 62/100
+Global Model Accuracy: 20.71%
+Round 63/100
+Global Model Accuracy: 22.23%
+Round 64/100
+Global Model Accuracy: 23.73%
+Round 65/100
+Global Model Accuracy: 25.39%
+Round 66/100
+Global Model Accuracy: 23.23%
+Round 67/100
+Global Model Accuracy: 23.83%
+Round 68/100
+Global Model Accuracy: 25.18%
+Round 69/100
+Global Model Accuracy: 25.39%
+Round 70/100
+Global Model Accuracy: 26.80%
+Round 71/100
+Global Model Accuracy: 24.70%
+Round 72/100
+Global Model Accuracy: 23.96%
+Round 73/100
+Global Model Accuracy: 25.30%
+Round 74/100
+Global Model Accuracy: 25.18%
+Round 75/100
+Global Model Accuracy: 24.53%
+Round 76/100
+Global Model Accuracy: 25.72%
+Round 77/100
+Global Model Accuracy: 26.39%
+Round 78/100
+Global Model Accuracy: 27.07%
+Round 79/100
+Global Model Accuracy: 27.38%
+Round 80/100
+Global Model Accuracy: 28.90%
+Round 81/100
+Global Model Accuracy: 27.30%
+Round 82/100
+Global Model Accuracy: 27.65%
+Round 83/100
+Global Model Accuracy: 27.65%
+Round 84/100
+Global Model Accuracy: 26.85%
+Round 85/100
+Global Model Accuracy: 24.54%
+Round 86/100
+Global Model Accuracy: 24.24%
+Round 87/100
+Global Model Accuracy: 23.77%
+Round 88/100
+Global Model Accuracy: 25.31%
+Round 89/100
+Global Model Accuracy: 26.29%
+Round 90/100
+Global Model Accuracy: 25.70%
+Round 91/100
+Global Model Accuracy: 26.03%
+Round 92/100
+Global Model Accuracy: 28.21%
+Round 93/100
+Global Model Accuracy: 27.30%
+Round 94/100
+Global Model Accuracy: 27.09%
+Round 95/100
+Global Model Accuracy: 26.87%
+Round 96/100
+Global Model Accuracy: 26.49%
+Round 97/100
+Global Model Accuracy: 27.14%
+Round 98/100
+Global Model Accuracy: 25.60%
+Round 99/100
+Global Model Accuracy: 24.59%
+Round 100/100
+Global Model Accuracy: 23.89%

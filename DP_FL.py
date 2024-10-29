@@ -6,6 +6,8 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
+import matplotlib
+matplotlib.use('Agg')  # Use non-GUI backend
 import matplotlib.pyplot as plt
 import numpy as np
 from torch.utils.data import random_split
@@ -14,6 +16,8 @@ import os
 import warnings
 import signal
 import csv
+
+from dataset import FEMNIST, ShakeSpeare  # Import custom datasets
 
 # Suppress Opacus warnings
 warnings.filterwarnings("ignore", category=UserWarning, module="opacus")
@@ -48,10 +52,58 @@ def cifar10_model():
         nn.Linear(512, 10),
     )
 
-# Load datasets
-transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5,), (0.5,))])
-mnist_dataset = datasets.MNIST(root='./data', train=True, download=True, transform=transform)
-cifar10_dataset = datasets.CIFAR10(root='./data', train=True, download=True, transform=transform)
+# Fashion-MNIST Model (Same as MNIST)
+def fashion_mnist_model():
+    return mnist_model()
+
+# Shakespeare Model (Assuming a simple LSTM-based model)
+def shakespeare_model():
+    class LSTMModel(nn.Module):
+        def __init__(self, vocab_size, embedding_dim, hidden_dim, output_dim):
+            super(LSTMModel, self).__init__()
+            self.embedding = nn.Embedding(vocab_size, embedding_dim)
+            self.lstm = nn.LSTM(embedding_dim, hidden_dim, batch_first=True)
+            self.fc = nn.Linear(hidden_dim, output_dim)
+        
+        def forward(self, x):
+            embedded = self.embedding(x)
+            lstm_out, _ = self.lstm(embedded)
+            out = self.fc(lstm_out[:, -1, :])  # Use the last output
+            return out
+
+    # Parameters should be adjusted based on your dataset
+    vocab_size = 100  # Example value
+    embedding_dim = 128
+    hidden_dim = 256
+    output_dim = 26  # Assuming 26 letters
+    return LSTMModel(vocab_size, embedding_dim, hidden_dim, output_dim)
+
+# Define a function to get dataset and model based on choice
+def get_dataset_and_model(dataset_choice):
+    if dataset_choice == "mnist":
+        transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))])
+        dataset = datasets.MNIST(root='./data', train=True, download=True, transform=transform)
+        model = mnist_model
+    elif dataset_choice == "cifar10":
+        transform = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize((0.5,), (0.5,)),
+        ])
+        dataset = datasets.CIFAR10(root='./data', train=True, download=True, transform=transform)
+        model = cifar10_model
+    elif dataset_choice == "fashion-mnist":
+        transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5,), (0.5,))])
+        dataset = datasets.FashionMNIST(root='./data/fashion-mnist', train=True, download=True, transform=transform)
+        model = fashion_mnist_model
+    elif dataset_choice == "femnist":
+        dataset = FEMNIST(train=True, transform=transforms.ToTensor())
+        model = mnist_model  # Assuming the same model as MNIST
+    elif dataset_choice == "shakespeare":
+        dataset = ShakeSpeare(train=True)
+        model = shakespeare_model
+    else:
+        raise ValueError("Invalid dataset choice.")
+    return dataset, model
 
 # Handle interrupt signal to reset GPU resources
 def handle_interrupt(signal, frame):
@@ -67,7 +119,7 @@ class Client:
         self.model = model().to(device)
         self.dataset = dataset
         self.dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
-        self.loss_fn = nn.CrossEntropyLoss()
+        self.loss_fn = nn.CrossEntropyLoss() if dataset != "shakespeare" else nn.MSELoss()
         self.optimizer = optim.SGD(self.model.parameters(), lr=learning_rate)
         self.device = device
         self.epsilon = epsilon
@@ -89,16 +141,10 @@ class Client:
             return 1.0 / self.epsilon  # Adjust this calculation as needed
         return 0.0
 
-    #def log_memory_usage(self):
-        #print(f"Allocated memory: {torch.cuda.memory_allocated() / 1024**2:.2f} MB")
-        #print(f"Cached memory: {torch.cuda.memory_reserved() / 1024**2:.2f} MB")
-
     def train(self, epochs):
         self.model.train()
         for epoch in range(epochs):
             for batch_idx, (data, target) in enumerate(self.dataloader):
-                #print(f"Training batch {batch_idx} in epoch {epoch}...")
-                #self.log_memory_usage()  # Log memory usage
                 data, target = data.to(self.device), target.to(self.device)
                 self.optimizer.zero_grad()
                 output = self.model(data)
@@ -125,9 +171,10 @@ class Client:
 
 # Federated Learning Class
 class FederatedLearning:
-    def __init__(self, clients, model_type):
+    def __init__(self, clients, model, dataset_choice):
         self.clients = clients
-        self.global_model = model_type().to(device)
+        self.global_model = model().to(device)
+        self.dataset_choice = dataset_choice  # Store dataset_choice as an instance variable
 
     def average_weights(self, weights_list):
         avg_weights = weights_list[0]
@@ -160,42 +207,42 @@ class FederatedLearning:
             for data, target in test_loader:
                 data, target = data.to(device), target.to(device)
                 output = self.global_model(data)
-                _, predicted = torch.max(output, 1)
+                if self.dataset_choice == "shakespeare":  # Use the instance variable
+                    # Assuming one-hot encoding for targets
+                    _, predicted = torch.max(output, 1)
+                    target_labels = torch.argmax(target, dim=1)
+                    correct += (predicted == target_labels).sum().item()
+                else:
+                    _, predicted = torch.max(output, 1)
+                    correct += (predicted == target).sum().item()
                 total += target.size(0)
-                correct += (predicted == target).sum().item()
         accuracy = 100 * correct / total
         print(f"Global Model Accuracy: {accuracy:.2f}%")
         return accuracy
 
 # Main function
 def main():
-    dataset_choice = "cifar10"
-    #dataset_choice = input("Choose dataset (mnist/cifar10): ").strip().lower()
-    if dataset_choice == "mnist":
-        dataset = mnist_dataset
-        model_type = mnist_model
-    elif dataset_choice == "cifar10":
-        dataset = cifar10_dataset
-        model_type = cifar10_model
-    else:
-        print("Invalid dataset choice.")
-        return
+    dataset_choice = "mnist"  # Change this to "mnist", "cifar10", "fashion-mnist", "femnist", or "shakespeare"
+    
+    dataset, model_type = get_dataset_and_model(dataset_choice)
 
     num_clients = 2
     rounds = 100
     epochs = 1
     epsilon = 0.01
-    #num_clients = int(input("Enter number of clients: "))
-    #rounds = int(input("Enter number of training rounds: "))
-    #epochs = int(input("Enter number of epochs per round: "))
-    #epsilon = input("Enter privacy epsilon value (or 'none' for no privacy): ").strip().lower()
-    epsilon = float(epsilon) if epsilon != 'none' else None
+    # Uncomment below lines to take inputs from the user
+    # dataset_choice = input("Choose dataset (mnist/cifar10/fashion-mnist/femnist/shakespeare): ").strip().lower()
+    # num_clients = int(input("Enter number of clients: "))
+    # rounds = int(input("Enter number of training rounds: "))
+    # epochs = int(input("Enter number of epochs per round: "))
+    # epsilon = input("Enter privacy epsilon value (or 'none' for no privacy): ").strip().lower()
+    # epsilon = float(epsilon) if epsilon != 'none' else None
 
     # Create clients
     clients = [Client(model_type, dataset, batch_size=32, learning_rate=0.01, device=device, epsilon=epsilon) for _ in range(num_clients)]
     
     # Create Federated Learning instance
-    fed_learning = FederatedLearning(clients, model_type)
+    fed_learning = FederatedLearning(clients, model_type, dataset_choice)  # Pass dataset_choice
 
     # Train Federated Model
     accuracies = fed_learning.train(rounds, epochs)
@@ -212,11 +259,13 @@ def main():
             writer.writerow([round_num, accuracy])
 
     # Plot Accuracy vs Training Rounds
+    plt.figure(figsize=(10, 6))
     plt.plot(range(1, rounds + 1), accuracies, label=f'ε = {epsilon}')
     plt.xlabel('Training Rounds')
     plt.ylabel('Accuracy (%)')
     plt.title(f'Global Model Accuracy vs Training Rounds (ε = {epsilon})')
     plt.legend()
+    plt.grid(True)
     plt.savefig(f'./log/{dataset_choice}_{epsilon}_accuracy_vs_rounds.png')
     plt.show()
 

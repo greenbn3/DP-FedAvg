@@ -36,10 +36,10 @@ epsilons=("0.01" "0.1" "0.5" "1.0" "10.0" "25.0" "50.0" "none")
 # Define the datasets, their corresponding models, and whether to use IID distribution
 # Format: "dataset_name:model_type:iid_flag"
 datasets_info=(
-    "fashion-mnist:cnn:true"
     "femnist:cnn:false"
-    "shakespeare:lstm:false"
 )
+#     "fashion-mnist:cnn:true"
+#    "shakespeare:lstm:false"
 
 # Define common training parameters
 NUM_CLIENTS=2

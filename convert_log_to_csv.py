@@ -7,7 +7,11 @@ log_dir = './log'
 
 # Define the datasets and epsilon values you want to process
 datasets = ["femnist", "fashion-mnist", "shakespeare"]
-epsilons = ["0.01", "0.1", "1.0", "10.0", "25.0", "50.0", "none"]
+epsilons = ["0.01", "0.1", "0.5", "1.0", "10.0", "25.0", "50.0", "none"]
+
+# Regular expressions to match Round and Accuracy lines
+round_regex = re.compile(r"Round\s+(\d+)/\d+")
+accuracy_regex = re.compile(r"Global Model Accuracy:\s+(\d+\.\d+)%")
 
 # Function to convert log file to CSV
 def convert_log_to_csv(log_filename, csv_filename):
@@ -16,30 +20,27 @@ def convert_log_to_csv(log_filename, csv_filename):
         csv_writer.writerow(['Round', 'Accuracy'])  # Write the header
 
         current_round = None
+
         for line in log_file:
-            # Strip leading/trailing whitespace
             line = line.strip()
 
-            # Check if the line starts with 'Round'
-            if line.startswith("Round"):
-                # Use regex to extract the round number
-                match = re.match(r"Round\s+(\d+)/\d+", line)
-                if match:
-                    current_round = match.group(1)
-                else:
-                    print(f"Warning: Could not parse round number in line: '{line}'")
-            
-            # Check if the line contains 'Global Model Accuracy'
-            elif "Global Model Accuracy" in line and current_round is not None:
-                # Use regex to extract the accuracy value
-                match = re.search(r"Global Model Accuracy:\s+(\d+\.\d+)%", line)
-                if match:
-                    accuracy = match.group(1)
-                    csv_writer.writerow([current_round, accuracy])
-                    current_round = None  # Reset for the next entry
-                else:
-                    print(f"Warning: Could not parse accuracy in line: '{line}'")
-        print(f"Finished processing {log_filename} and saved to {csv_filename}")
+            # Check for Round line
+            round_match = round_regex.match(line)
+            if round_match:
+                current_round = int(round_match.group(1))
+                continue  # Move to next line to find accuracy
+
+            # Check for Accuracy line
+            accuracy_match = accuracy_regex.match(line)
+            if accuracy_match and current_round is not None:
+                accuracy = float(accuracy_match.group(1))
+                csv_writer.writerow([current_round, accuracy])
+                current_round = None  # Reset for the next round
+                continue
+
+            # Ignore other lines
+
+    print(f"Finished processing {log_filename} and saved to {csv_filename}")
 
 # Iterate over each dataset and epsilon value
 for dataset in datasets:

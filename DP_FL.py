@@ -174,7 +174,7 @@ def main():
 
     # Set parameters
     num_clients = 5
-    rounds = 5
+    rounds = 250
     epochs = 1
     epsilon = 1.0  # Privacy parameter
     delta = 1e-5

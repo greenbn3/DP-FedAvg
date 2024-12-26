@@ -48,8 +48,8 @@ class Client:
         self.epsilon = epsilon
         self.delta = delta
 
-        # Apply differential privacy if epsilon is provided
-        if self.epsilon is not None:
+        # Apply differential privacy if epsilon is provided and valid
+        if self.epsilon and self.epsilon != "none":
             self.privacy_engine = PrivacyEngine()
             self.model, self.optimizer, self.dataloader = self.privacy_engine.make_private(
                 module=self.model,
@@ -62,8 +62,7 @@ class Client:
     def _calculate_noise_multiplier(self):
         if self.epsilon and isinstance(self.epsilon, (float, int)):
             return 1.0 / self.epsilon
-        else:
-            return None
+        return None
 
     def train(self, epochs):
         self.model.train()
@@ -98,7 +97,7 @@ class FederatedLearningWithDP:
         self.epsilon = epsilon
         self.delta = delta
         self.privacy_accountant = RDPAccountant()
-        self.noise_multiplier = 1.0 / epsilon if epsilon else None
+        self.noise_multiplier = 1.0 / epsilon if epsilon and epsilon != "none" else None
 
     def average_weights_with_noise(self, weights_list):
         avg_weights = weights_list[0]
@@ -106,15 +105,16 @@ class FederatedLearningWithDP:
             for i in range(1, len(weights_list)):
                 avg_weights[key] += weights_list[i][key]
             avg_weights[key] = torch.div(avg_weights[key], len(weights_list))
-            if self.epsilon:
+            if self.epsilon and self.epsilon != "none":
                 noise_std = 1.0 / self.epsilon
                 noise = torch.normal(mean=0, std=noise_std, size=avg_weights[key].size()).to(device)
                 avg_weights[key] += noise
         return avg_weights
 
-    def train(self, rounds, epochs):
+    def train(self, rounds, epochs, test_dataset):
         global_accuracies = []
         for rnd in range(rounds):
+            print(f"Round {rnd+1}/{rounds}")
             client_weights = []
             for client in self.clients:
                 client.set_weights(self.global_model.state_dict())
@@ -167,20 +167,29 @@ def main():
     train_dataset, test_dataset = get_mnist_datasets()
     num_clients = 10
     rounds = 25
-    epochs = 1
-    epsilon = 1.0
+    epochs = 5  # Increased epochs for better learning
+    epsilon = None  # Set to None or "none" to disable DP
     delta = 1e-5
 
+    # Distribute data among clients
     client_datasets = distribute_data_among_clients(train_dataset, num_clients)
+
+    # Create clients
     clients = [
         Client(mnist_model, client_datasets[i], batch_size=32, learning_rate=0.01, device=device, epsilon=epsilon)
         for i in range(num_clients)
     ]
-    fed_learning = FederatedLearningWithDP(clients, mnist_model, "mnist", epsilon, delta)
-    accuracies = fed_learning.train(rounds, epochs)
 
+    # Federated learning instance
+    fed_learning = FederatedLearningWithDP(clients, mnist_model, "mnist", epsilon, delta)
+
+    # Train federated model
+    accuracies = fed_learning.train(rounds, epochs, test_dataset)
+
+    # Save and plot results
     os.makedirs("./log", exist_ok=True)
-    csv_filename = "./log/mnist_accuracy.csv"
+    epsilon_str = "none" if epsilon == "none" or epsilon is None else str(epsilon)
+    csv_filename = f"./log/mnist_accuracy_epsilon_{epsilon_str}.csv"
     with open(csv_filename, mode="w", newline="") as file:
         writer = csv.writer(file)
         writer.writerow(["Round", "Accuracy"])
@@ -188,14 +197,15 @@ def main():
             writer.writerow([round_num, accuracy])
 
     plt.figure(figsize=(10, 6))
-    plt.plot(range(1, rounds + 1), accuracies, label=f"ε = {epsilon}")
+    plt.plot(range(1, rounds + 1), accuracies, label=f"ε = {epsilon_str}")
     plt.xlabel("Training Rounds")
     plt.ylabel("Accuracy (%)")
-    plt.title(f"Global Model Accuracy vs Training Rounds (ε = {epsilon})")
+    plt.title(f"Global Model Accuracy vs Training Rounds (ε = {epsilon_str})")
     plt.legend()
     plt.grid(True)
-    plt.savefig("./log/mnist_accuracy_vs_rounds.png")
-    print("Plot saved successfully.")
+    plot_filename = f"./log/mnist_accuracy_vs_rounds_epsilon_{epsilon_str}.png"
+    plt.savefig(plot_filename)
+    print(f"Plot saved successfully as {plot_filename}.")
 
 
 if __name__ == "__main__":

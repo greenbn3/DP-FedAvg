@@ -3,18 +3,26 @@ import torch.nn as nn
 import torch.optim as optim
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, random_split, Subset
 from opacus import PrivacyEngine
 from opacus.accountants import RDPAccountant
 import matplotlib
-matplotlib.use("agg")  # Set to a non-GUI backend explicitly
-#matplotlib.use('Agg')  # Use non-GUI backend
-import matplotlib.pyplot as plt
+import platform
 import os
+import random
 import csv
+import matplotlib.pyplot as plt
 
-# Check if GPU is available
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# Set matplotlib backend explicitly for non-GUI use
+matplotlib.use("agg")
+
+# Determine device based on OS and CUDA availability
+if platform.system() == "Windows" or platform.system() == "Linux":
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+elif platform.system() == "Darwin":  # MacOS
+    device = torch.device("mps" if torch.has_mps else "cpu")  # macOS Metal Performance Shaders (MPS)
+else:
+    device = torch.device("cpu")  # Default to CPU for unknown OS
 print(f"Using device: {device}")
 
 # Define MNIST model
@@ -52,17 +60,15 @@ class Client:
             )
 
     def _calculate_noise_multiplier(self):
-        # Validate epsilon and calculate noise multiplier
         if self.epsilon and isinstance(self.epsilon, (float, int)):
             return 1.0 / self.epsilon
         else:
             return None
 
-
     def train(self, epochs):
         self.model.train()
         for epoch in range(epochs):
-            for batch_idx, (data, target) in enumerate(self.dataloader):
+            for data, target in self.dataloader:
                 data, target = data.to(self.device), target.to(self.device)
                 self.optimizer.zero_grad()
                 output = self.model(data)
@@ -70,22 +76,14 @@ class Client:
                 loss.backward()
                 self.optimizer.step()
 
-                # Debugging logs
-               # print(f"Epoch {epoch+1}, Batch {batch_idx+1}/{len(self.dataloader)}, Loss: {loss.item()}")
-
-        print("Training complete for this client.")
-
-
     def get_weights(self):
-        # Handle Opacus wrapper: Use _module's state_dict if wrapped
-        if hasattr(self.model, '_module'):
+        if hasattr(self.model, "_module"):
             return self.model._module.state_dict()
         else:
             return self.model.state_dict()
 
     def set_weights(self, state_dict):
-        # Handle Opacus wrapper: Load weights into _module if wrapped
-        if hasattr(self.model, '_module'):
+        if hasattr(self.model, "_module"):
             self.model._module.load_state_dict(state_dict)
         else:
             self.model.load_state_dict(state_dict)
@@ -100,16 +98,7 @@ class FederatedLearningWithDP:
         self.epsilon = epsilon
         self.delta = delta
         self.privacy_accountant = RDPAccountant()
-
-        # Calculate noise multiplier based on epsilon and delta
-        if epsilon and isinstance(epsilon, (float, int)):
-            # Define the sampling probability
-            sample_rate = 1 / len(clients)  # Assuming equal sampling
-            # Calculate the noise multiplier
-            self.noise_multiplier = 1.0 / epsilon
-        else:
-            self.noise_multiplier = None
-
+        self.noise_multiplier = 1.0 / epsilon if epsilon else None
 
     def average_weights_with_noise(self, weights_list):
         avg_weights = weights_list[0]
@@ -117,18 +106,15 @@ class FederatedLearningWithDP:
             for i in range(1, len(weights_list)):
                 avg_weights[key] += weights_list[i][key]
             avg_weights[key] = torch.div(avg_weights[key], len(weights_list))
-            # Add noise to aggregated weights if epsilon is valid
-            if self.epsilon and isinstance(self.epsilon, (float, int)):
-                noise_std = 1.0 / self.epsilon  # Adjust as needed
+            if self.epsilon:
+                noise_std = 1.0 / self.epsilon
                 noise = torch.normal(mean=0, std=noise_std, size=avg_weights[key].size()).to(device)
                 avg_weights[key] += noise
         return avg_weights
 
-
     def train(self, rounds, epochs):
         global_accuracies = []
         for rnd in range(rounds):
-            print(f"Round {rnd+1}/{rounds}")
             client_weights = []
             for client in self.clients:
                 client.set_weights(self.global_model.state_dict())
@@ -136,21 +122,13 @@ class FederatedLearningWithDP:
                 client_weights.append(client.get_weights())
             avg_weights = self.average_weights_with_noise(client_weights)
             self.global_model.load_state_dict(avg_weights)
-            accuracy = self.evaluate_global_model()
+            accuracy = self.evaluate_global_model(test_dataset)
             global_accuracies.append(accuracy)
-            
-            # Log cumulative privacy budget
-            if self.noise_multiplier is not None:
-                self.privacy_accountant.step(noise_multiplier=self.noise_multiplier, sample_rate=1 / len(self.clients))
-                print(f"Privacy budget spent: ε={self.privacy_accountant.get_epsilon(delta=self.delta):.2f}")
-            else:
-                print("Noise multiplier is not set. Skipping privacy budget tracking.")
         return global_accuracies
 
-
-    def evaluate_global_model(self):
+    def evaluate_global_model(self, test_dataset):
         self.global_model.eval()
-        test_loader = DataLoader(self.clients[0].dataset, batch_size=32, shuffle=False)
+        test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
         correct, total = 0, 0
         with torch.no_grad():
             for data, target in test_loader:
@@ -163,54 +141,61 @@ class FederatedLearningWithDP:
         print(f"Global Model Accuracy: {accuracy:.2f}%")
         return accuracy
 
+
+# Helper functions
+def get_mnist_datasets():
+    transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))])
+    full_dataset = datasets.MNIST(root="./data", train=True, download=True, transform=transform)
+    train_size = int(0.8 * len(full_dataset))
+    test_size = len(full_dataset) - train_size
+    train_dataset, test_dataset = random_split(full_dataset, [train_size, test_size])
+    return train_dataset, test_dataset
+
+def distribute_data_among_clients(train_dataset, num_clients):
+    client_datasets = []
+    client_size = len(train_dataset) // num_clients
+    indices = list(range(len(train_dataset)))
+    random.shuffle(indices)
+    for i in range(num_clients):
+        client_indices = indices[i * client_size:(i + 1) * client_size]
+        client_datasets.append(Subset(train_dataset, client_indices))
+    return client_datasets
+
+
 # Main function
 def main():
-    # Define dataset choice and parameters
-    dataset_choice = "mnist"  # Use "mnist" for now, you can make it dynamic later
-    transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))])
-    
-    # Load MNIST dataset
-    dataset = datasets.MNIST(root='./data', train=True, download=True, transform=transform)
-
-    # Set parameters
-    num_clients = 5
-    rounds = 250
+    train_dataset, test_dataset = get_mnist_datasets()
+    num_clients = 10
+    rounds = 25
     epochs = 1
-    epsilon = 1.0  # Privacy parameter
+    epsilon = 1.0
     delta = 1e-5
 
-    # Use a clean string for the dataset name
-    dataset_name = dataset_choice
-
-    # Create clients
-    clients = [Client(mnist_model, dataset, batch_size=32, learning_rate=0.01, device=device, epsilon=epsilon) for _ in range(num_clients)]
-
-    # Federated learning instance
-    fed_learning = FederatedLearningWithDP(clients, mnist_model, dataset_name, epsilon, delta)
-
-    # Train federated model
+    client_datasets = distribute_data_among_clients(train_dataset, num_clients)
+    clients = [
+        Client(mnist_model, client_datasets[i], batch_size=32, learning_rate=0.01, device=device, epsilon=epsilon)
+        for i in range(num_clients)
+    ]
+    fed_learning = FederatedLearningWithDP(clients, mnist_model, "mnist", epsilon, delta)
     accuracies = fed_learning.train(rounds, epochs)
 
-    # Save accuracy data
-    os.makedirs('./log', exist_ok=True)
-    csv_filename = f'./log/{dataset_name}_{epsilon}_accuracy.csv'
-    with open(csv_filename, mode='w', newline='') as file:
+    os.makedirs("./log", exist_ok=True)
+    csv_filename = "./log/mnist_accuracy.csv"
+    with open(csv_filename, mode="w", newline="") as file:
         writer = csv.writer(file)
-        writer.writerow(['Round', 'Accuracy'])
+        writer.writerow(["Round", "Accuracy"])
         for round_num, accuracy in enumerate(accuracies, start=1):
             writer.writerow([round_num, accuracy])
 
-    # Plot Accuracy vs Training Rounds
     plt.figure(figsize=(10, 6))
-    plt.plot(range(1, rounds + 1), accuracies, label=f'ε = {epsilon}')
-    plt.xlabel('Training Rounds')
-    plt.ylabel('Accuracy (%)')
-    plt.title(f'Global Model Accuracy vs Training Rounds (ε = {epsilon})')
+    plt.plot(range(1, rounds + 1), accuracies, label=f"ε = {epsilon}")
+    plt.xlabel("Training Rounds")
+    plt.ylabel("Accuracy (%)")
+    plt.title(f"Global Model Accuracy vs Training Rounds (ε = {epsilon})")
     plt.legend()
     plt.grid(True)
-    plot_filename = f'./log/{dataset_name}_{epsilon}_accuracy_vs_rounds.png'
-    plt.savefig(plot_filename)
-    print(f"Plot saved successfully as {plot_filename}.")
+    plt.savefig("./log/mnist_accuracy_vs_rounds.png")
+    print("Plot saved successfully.")
 
 
 if __name__ == "__main__":

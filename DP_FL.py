@@ -36,6 +36,23 @@ def mnist_model():
         nn.Linear(64, 10),
     )
 
+# Define CIFAR-10 model
+def cifar10_model():
+    return nn.Sequential(
+        nn.Conv2d(3, 32, kernel_size=3, stride=1, padding=1),
+        nn.ReLU(),
+        nn.MaxPool2d(kernel_size=2, stride=2),
+        nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1),
+        nn.ReLU(),
+        nn.MaxPool2d(kernel_size=2, stride=2),
+        nn.Flatten(),
+        nn.Linear(64 * 8 * 8, 128),
+        nn.ReLU(),
+        nn.Linear(128, 64),
+        nn.ReLU(),
+        nn.Linear(64, 10),
+    )
+
 # Federated Learning Client
 class Client:
     def __init__(self, model, dataset, batch_size, learning_rate, device, epsilon=None, delta=1e-5):
@@ -151,6 +168,17 @@ def get_mnist_datasets():
     train_dataset, test_dataset = random_split(full_dataset, [train_size, test_size])
     return train_dataset, test_dataset
 
+def get_cifar10_datasets():
+    transform = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))  # Normalize to [-1, 1]
+    ])
+    full_dataset = datasets.CIFAR10(root="./data", train=True, download=True, transform=transform)
+    train_size = int(0.8 * len(full_dataset))
+    test_size = len(full_dataset) - train_size
+    train_dataset, test_dataset = random_split(full_dataset, [train_size, test_size])
+    return train_dataset, test_dataset
+
 def distribute_data_among_clients(train_dataset, num_clients):
     client_datasets = []
     client_size = len(train_dataset) // num_clients
@@ -164,11 +192,21 @@ def distribute_data_among_clients(train_dataset, num_clients):
 
 # Main function
 def main():
-    train_dataset, test_dataset = get_mnist_datasets()
+    dataset_choice = "cifar10"  # Toggle between "mnist" and "cifar10"
+    
+    if dataset_choice == "mnist":
+        train_dataset, test_dataset = get_mnist_datasets()
+        model_fn = mnist_model
+    elif dataset_choice == "cifar10":
+        train_dataset, test_dataset = get_cifar10_datasets()
+        model_fn = cifar10_model
+    else:
+        raise ValueError("Unsupported dataset. Choose 'mnist' or 'cifar10'.")
+    
     num_clients = 10
     rounds = 150
-    epochs = 2  # Increased epochs for better learning
-    epsilon = 1.0  # Set to None or "none" to disable DP
+    epochs = 2
+    epsilon = 5.0
     delta = 1e-5
 
     # Distribute data among clients
@@ -176,12 +214,12 @@ def main():
 
     # Create clients
     clients = [
-        Client(mnist_model, client_datasets[i], batch_size=32, learning_rate=0.01, device=device, epsilon=epsilon)
+        Client(model_fn, client_datasets[i], batch_size=32, learning_rate=0.01, device=device, epsilon=epsilon)
         for i in range(num_clients)
     ]
 
     # Federated learning instance
-    fed_learning = FederatedLearningWithDP(clients, mnist_model, "mnist", epsilon, delta)
+    fed_learning = FederatedLearningWithDP(clients, model_fn, dataset_choice, epsilon, delta)
 
     # Train federated model
     accuracies = fed_learning.train(rounds, epochs, test_dataset)
@@ -189,7 +227,7 @@ def main():
     # Save and plot results
     os.makedirs("./log", exist_ok=True)
     epsilon_str = "none" if epsilon == "none" or epsilon is None else str(epsilon)
-    csv_filename = f"./log/mnist_accuracy_epsilon_{epsilon_str}.csv"
+    csv_filename = f"./log/{dataset_choice}_accuracy_epsilon_{epsilon_str}.csv"
     with open(csv_filename, mode="w", newline="") as file:
         writer = csv.writer(file)
         writer.writerow(["Round", "Accuracy"])
@@ -200,10 +238,10 @@ def main():
     plt.plot(range(1, rounds + 1), accuracies, label=f"ε = {epsilon_str}")
     plt.xlabel("Training Rounds")
     plt.ylabel("Accuracy (%)")
-    plt.title(f"Global Model Accuracy vs Training Rounds (ε = {epsilon_str})")
+    plt.title(f"Global Model Accuracy vs Training Rounds ({dataset_choice}, ε = {epsilon_str})")
     plt.legend()
     plt.grid(True)
-    plot_filename = f"./log/mnist_accuracy_vs_rounds_epsilon_{epsilon_str}.png"
+    plot_filename = f"./log/{dataset_choice}_accuracy_vs_rounds_epsilon_{epsilon_str}.png"
     plt.savefig(plot_filename)
     print(f"Plot saved successfully as {plot_filename}.")
 

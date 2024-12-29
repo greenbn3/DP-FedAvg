@@ -166,9 +166,9 @@ def distribute_data_among_clients(train_dataset, num_clients):
 def main():
     train_dataset, test_dataset = get_mnist_datasets()
     num_clients = 10
-    rounds = 25
-    epochs = 5  # Increased epochs for better learning
-    epsilon = None  # Set to None or "none" to disable DP
+    rounds = 150
+    epochs = 2  # Increased epochs for better learning
+    epsilon = 1.0  # Set to None or "none" to disable DP
     delta = 1e-5
 
     # Distribute data among clients

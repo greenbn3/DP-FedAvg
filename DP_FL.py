@@ -206,7 +206,7 @@ def main():
     num_clients = 10
     rounds = 150
     epochs = 2
-    epsilon = 5.0
+    epsilon = 10.0
     delta = 1e-5
 
     # Distribute data among clients

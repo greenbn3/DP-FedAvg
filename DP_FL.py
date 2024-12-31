@@ -53,6 +53,17 @@ def cifar10_model():
         nn.Linear(64, 10),
     )
 
+# Define FashionMNIST model
+def fashionmnist_model():
+    return nn.Sequential(
+        nn.Flatten(),
+        nn.Linear(28 * 28, 128),
+        nn.ReLU(),
+        nn.Linear(128, 64),
+        nn.ReLU(),
+        nn.Linear(64, 10),
+    )
+
 # Federated Learning Client
 class Client:
     def __init__(self, model, dataset, batch_size, learning_rate, device, epsilon=None, delta=1e-5):
@@ -179,6 +190,14 @@ def get_cifar10_datasets():
     train_dataset, test_dataset = random_split(full_dataset, [train_size, test_size])
     return train_dataset, test_dataset
 
+def get_fashionmnist_datasets():
+    transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5,), (0.5,))])
+    full_dataset = datasets.FashionMNIST(root="./data", train=True, download=True, transform=transform)
+    train_size = int(0.8 * len(full_dataset))
+    test_size = len(full_dataset) - train_size
+    train_dataset, test_dataset = random_split(full_dataset, [train_size, test_size])
+    return train_dataset, test_dataset
+
 def distribute_data_among_clients(train_dataset, num_clients):
     client_datasets = []
     client_size = len(train_dataset) // num_clients
@@ -192,7 +211,7 @@ def distribute_data_among_clients(train_dataset, num_clients):
 
 # Main function
 def main():
-    dataset_choice = "cifar10"  # Toggle between "mnist" and "cifar10"
+    dataset_choice = "fashionmnist"  # Toggle between "mnist" and "cifar10"
     
     if dataset_choice == "mnist":
         train_dataset, test_dataset = get_mnist_datasets()
@@ -200,13 +219,16 @@ def main():
     elif dataset_choice == "cifar10":
         train_dataset, test_dataset = get_cifar10_datasets()
         model_fn = cifar10_model
+    elif dataset_choice == "fashionmnist":
+        train_dataset, test_dataset = get_fashionmnist_datasets()
+        model_fn = fashionmnist_model
     else:
         raise ValueError("Unsupported dataset. Choose 'mnist' or 'cifar10'.")
     
     num_clients = 10
     rounds = 150
     epochs = 2
-    epsilon = 50.0
+    epsilon = 5.0
     delta = 1e-5
 
     # Distribute data among clients

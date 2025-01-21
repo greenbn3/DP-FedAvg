@@ -1,0 +1,8 @@
+Dataset,Epsilon,FinalGlobalAccuracy,MIA_InSet_Accuracy,MIA_OutSet_Accuracy,MIA_Overall_Accuracy
+mnist,none,97.92,79.90,54.00,66.95
+mnist,0.01,28.48,83.70,77.00,80.35
+mnist,0.1,57.67,64.70,73.70,69.20
+mnist,0.25,83.67,75.80,73.00,74.40
+mnist,0.5,91.24,70.60,70.20,70.40
+mnist,1.0,92.94,69.20,69.90,69.55
+mnist,5.0,94.55,75.30,63.70,69.50

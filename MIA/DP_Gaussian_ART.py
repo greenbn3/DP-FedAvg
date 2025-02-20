@@ -219,13 +219,13 @@ def plot_model_outputs(model, dataset, device, title, save_path):
     Plots histograms of the maximum softmax probabilities and maximum logit values
     for the given dataset.
     """
-    model.eval()
+    model = model.to('cpu')
     loader = DataLoader(dataset, batch_size=64, shuffle=False)
     max_softmax = []
     max_logits = []
     with torch.no_grad():
         for data, _ in loader:
-            data = data.to(device)
+            data = data.to('cpu')
             logits = model(data)
             softmax = torch.softmax(logits, dim=1)
             max_softmax.extend(softmax.max(dim=1)[0].cpu().numpy())
@@ -300,9 +300,9 @@ def distribute_data_among_clients(train_dataset, num_clients):
 # 9. MAIN ----------------------------------------------------------------
 def main():
     # Choose "mnist" or "cifar10"
-    dataset_choice = "mnist"
+    dataset_choice = "cifar10"
     num_clients = 3
-    rounds = 200   # Increased training rounds
+    rounds = 150   # Increased training rounds
     epochs = 2
     # Use a more moderate range of epsilon values
     epsilons = [None, 0.5, 1.0, 2.0, 5.0, 10.0]

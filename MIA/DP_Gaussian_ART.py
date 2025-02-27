@@ -300,12 +300,12 @@ def distribute_data_among_clients(train_dataset, num_clients):
 # 9. MAIN ----------------------------------------------------------------
 def main():
     # Choose "mnist" or "cifar10"
-    dataset_choice = "cifar10"
+    dataset_choice = "mnist"
     num_clients = 3
     rounds = 150   # Increased training rounds
     epochs = 2
     # Use a more moderate range of epsilon values
-    epsilons = [None, 0.5, 1.0, 2.0, 5.0, 10.0]
+    epsilons = [None, 0.001, 0.01, 0.1, 1.0, 2.0, 5.0, 10.0, 50.0]
     delta = 1e-5
 
     # 1) Load dataset / model based on dataset_choice

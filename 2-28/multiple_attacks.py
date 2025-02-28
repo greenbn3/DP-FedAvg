@@ -284,14 +284,14 @@ def run_loss_based_attack(target_model, member_loader, non_member_loader, device
         data, target = data.to(device), target.to(device)
         outputs = target_model(data)
         losses = attack_loss_fn(outputs, target)
-        member_losses.extend(losses.cpu().numpy())
+        member_losses.extend(losses.detach().cpu().numpy())
     
     non_member_losses = []
     for data, target in non_member_loader:
         data, target = data.to(device), target.to(device)
         outputs = target_model(data)
         losses = attack_loss_fn(outputs, target)
-        non_member_losses.extend(losses.cpu().numpy())
+        non_member_losses.extend(losses.detach().cpu().numpy())
     
     member_losses = np.array(member_losses)
     non_member_losses = np.array(non_member_losses)
@@ -357,9 +357,9 @@ def distribute_data_among_clients(train_dataset, num_clients):
 
 def main():
     datasets_choices = ["mnist", "fashionmnist", "cifar10"]
-    epsilon_values = [None, 75.0, 50.0, 25.0, 10.0, 5.0, 1.0]
+    epsilon_values = [None, 75.0, 50.0, 25.0, 10.0, 5.0, 1.0, 0.1, 0.01, 0.001]
     num_clients = 25
-    rounds = 30
+    rounds = 200
     epochs = 2
     delta = 1e-5
 
@@ -371,11 +371,12 @@ def main():
     summary_csv_path = os.path.join(log_dir, "mia_accuracy_summary.csv")
     with open(summary_csv_path, mode="w", newline="") as summary_file:
         summary_writer = csv.writer(summary_file)
-        # Header includes both ART attack and loss-based attack metrics
+        # Updated header with global model accuracy
         summary_writer.writerow([
             "Dataset", "Epsilon",
             "ART MIA Accuracy", "TPR", "FPR", "Precision",
-            "Loss Attack Overall Accuracy", "Avg Member Loss", "Avg Non-Member Loss", "Loss Attack Threshold"
+            "Loss Attack Overall Accuracy", "Avg Member Loss", "Avg Non-Member Loss", "Loss Attack Threshold",
+            "Global Model Accuracy"
         ])
 
         for dataset_choice in datasets_choices:
@@ -412,7 +413,8 @@ def main():
 
                 # Train federated model
                 accuracies = fed_learning.train(rounds, epochs, test_dataset)
-
+                # Save final global model accuracy as the last round's accuracy
+                global_acc = accuracies[-1]
                 # Save global model
                 model_save_path = os.path.join(log_dir, f"{dataset_choice}_global_model_epsilon_{epsilon_str}.pt")
                 torch.save(fed_learning.global_model.state_dict(), model_save_path)
@@ -444,11 +446,12 @@ def main():
                 print(f"Loss-based MIA Accuracy with ε={epsilon_str}: {loss_attack_accuracy:.2f}%")
                 print(f"Avg Member Loss: {avg_member_loss:.4f}, Avg Non-member Loss: {avg_non_member_loss:.4f}, Loss Threshold: {loss_threshold:.4f}")
 
-                # Log both ART and loss-based attack metrics to CSV
+                # Log both ART and loss-based attack metrics along with global accuracy to CSV
                 summary_writer.writerow([
                     dataset_choice, epsilon_str,
                     f"{art_accuracy:.2f}", f"{tpr:.3f}", f"{fpr:.3f}", f"{precision:.3f}",
-                    f"{loss_attack_accuracy:.2f}", f"{avg_member_loss:.4f}", f"{avg_non_member_loss:.4f}", f"{loss_threshold:.4f}"
+                    f"{loss_attack_accuracy:.2f}", f"{avg_member_loss:.4f}", f"{avg_non_member_loss:.4f}", f"{loss_threshold:.4f}",
+                    f"{global_acc:.2f}"
                 ])
 
                 # Save accuracy per round to separate CSV

@@ -308,7 +308,8 @@ def run_loss_based_attack(target_model, member_loader, non_member_loader, device
     
     member_accuracy = (member_preds == 1).mean() * 100
     non_member_accuracy = (non_member_preds == 0).mean() * 100
-    overall_accuracy = ((member_preds == 1).sum() + (non_member_preds == 0).sum()) / (len(member_losses) + len(non_member_losses)) * 100
+    overall_accuracy = ((member_preds == 1).sum() + (non_member_preds == 0).sum()) / (len(member_losses) + len(non_member_losses)) * 100 
+    
     
     return overall_accuracy, avg_member_loss, avg_non_member_loss, threshold
 

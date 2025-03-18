@@ -1,0 +1,10 @@
+Dataset,Epsilon,FinalGlobalAccuracy,MIA_InSet_Accuracy,MIA_OutSet_Accuracy,MIA_Overall_Accuracy
+cifar10,none,68.28,76.40,69.80,73.10
+cifar10,0.001,10.19,82.60,86.30,84.45
+cifar10,0.01,13.36,80.00,80.80,80.40
+cifar10,0.1,28.84,61.60,66.60,64.10
+cifar10,1.0,28.86,67.30,55.20,61.25
+cifar10,2.0,28.76,68.70,55.10,61.90
+cifar10,5.0,27.89,62.10,59.30,60.70
+cifar10,10.0,27.92,61.60,60.70,61.15
+cifar10,50.0,29.20,61.90,65.20,63.55

@@ -138,7 +138,7 @@ class FederatedLearningWithDP:
             if self.epsilon and self.epsilon != "none":
                 noise_std = 1.0 / self.epsilon
                 noise = torch.normal(mean=0, std=noise_std, size=avg_weights[key].size()).to(self.device)
-                avg_weights[key] += noise
+                avg_weights[key] += noise # This line adds noise on server side: I THINK WE SHOULD REMOVE THIS LINE!! 
         return avg_weights
 
     def train(self, rounds, epochs, test_dataset):

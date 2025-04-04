@@ -1,0 +1,4 @@
+Dataset,Epsilon,ART MIA Accuracy,TPR,FPR,Precision,Loss Attack Overall Accuracy,Avg Member Loss,Avg Non-Member Loss,Loss Attack Threshold,Global Model Accuracy
+cifar10,0.1,51.65,0.580,0.547,0.515,50.95,1.8829,1.8147,1.8488,36.89
+cifar10,0.01,51.15,0.596,0.573,0.510,49.60,7492.0933,7346.6279,7419.3604,10.59
+cifar10,0.001,51.25,0.092,0.067,0.579,49.25,4284308224.0000,4142342912.0000,4213325568.0000,10.05

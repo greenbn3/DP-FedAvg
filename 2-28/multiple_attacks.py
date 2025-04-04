@@ -135,10 +135,6 @@ class FederatedLearningWithDP:
         avg_weights = {}
         for key in weights_list[0].keys():
             avg_weights[key] = torch.stack([weights[key] for weights in weights_list], dim=0).mean(dim=0)
-            if self.epsilon and self.epsilon != "none":
-                noise_std = 1.0 / self.epsilon
-                noise = torch.normal(mean=0, std=noise_std, size=avg_weights[key].size()).to(self.device)
-                avg_weights[key] += noise # This line adds noise on server side: I THINK WE SHOULD REMOVE THIS LINE!! 
         return avg_weights
 
     def train(self, rounds, epochs, test_dataset):
@@ -357,8 +353,10 @@ def distribute_data_among_clients(train_dataset, num_clients):
 # --- MAIN FUNCTION ---
 
 def main():
-    datasets_choices = ["mnist", "fashionmnist", "cifar10"]
-    epsilon_values = [None, 75.0, 50.0, 25.0, 10.0, 5.0, 1.0, 0.1, 0.01, 0.001]
+    # datasets_choices = ["mnist", "fashionmnist", "cifar10"]
+    datasets_choices = ["cifar10"]
+    # epsilon_values = [None, 75.0, 50.0, 25.0, 10.0, 5.0, 1.0, 0.1, 0.01, 0.001]
+    epsilon_values = [0.1, 0.01, 0.001]
     num_clients = 25
     rounds = 200
     epochs = 2

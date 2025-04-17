@@ -129,6 +129,7 @@ print(f"Using device: {device}")
 # --- Main Loop: Process Saved .pt Files and Generate Histograms ---
 
 log_folder = "./log"  # Folder where the .pt files are stored
+log_histogram_folder = "./log_histogram"  # Folder to save histogram images
 pt_files = glob.glob(os.path.join(log_folder, "*_global_model_epsilon_*.pt"))
 
 for pt_file in pt_files:
@@ -162,8 +163,8 @@ for pt_file in pt_files:
     model.eval()
     
     # Define output prefixes for histogram images
-    output_prefix_train = os.path.join(log_folder, f"{dataset_name}_epsilon_{epsilon_str}_members_histogram")
-    output_prefix_test = os.path.join(log_folder, f"{dataset_name}_epsilon_{epsilon_str}_nonmembers_histogram")
+    output_prefix_train = os.path.join(log_histogram_folder, f"{dataset_name}_epsilon_{epsilon_str}_members_histogram")
+    output_prefix_test = os.path.join(log_histogram_folder, f"{dataset_name}_epsilon_{epsilon_str}_nonmembers_histogram")
     
     # Generate and save histograms for training (members) and test (non-members) datasets
     generate_histograms(model, train_dataset, device, output_prefix_train)

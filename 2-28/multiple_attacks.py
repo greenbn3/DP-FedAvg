@@ -353,10 +353,8 @@ def distribute_data_among_clients(train_dataset, num_clients):
 # --- MAIN FUNCTION ---
 
 def main():
-    # datasets_choices = ["mnist", "fashionmnist", "cifar10"]
-    datasets_choices = ["cifar10"]
-    # epsilon_values = [None, 75.0, 50.0, 25.0, 10.0, 5.0, 1.0, 0.1, 0.01, 0.001]
-    epsilon_values = [0.1, 0.01, 0.001]
+    datasets_choices = ["mnist", "fashionmnist", "cifar10"]
+    epsilon_values = [None, 75.0, 50.0, 25.0, 10.0, 5.0, 1.0, 0.1, 0.01, 0.001]
     num_clients = 25
     rounds = 200
     epochs = 2
